@@ -63,6 +63,19 @@ void padding(unsigned char message[64]) {
     /* } */
 }
 
+unsigned circular(unsigned u, unsigned word) {
+    if (u > 0 && u < 32) {
+        /* unsigned local = *word; */
+        return (word << u) | (word >> (32 - u));
+    }
+    if (u == 0) {
+        return word;
+    }
+    printf("Error: circular function 'n' exceeded interval '0 <= n < 32'");
+    return 0;
+}
+
+
 unsigned f0(unsigned b, unsigned c, unsigned d) { return (b & c) | ((~b) & d);}
 
 unsigned f20(unsigned b, unsigned c, unsigned d) { return b ^ c ^ d; }
@@ -71,36 +84,70 @@ unsigned f40(unsigned b, unsigned c, unsigned d) { return (b & c) | (b & d) | (c
 
 unsigned f60(unsigned b, unsigned c, unsigned d) { return b ^ c ^ d; }
 
+unsigned (f)(unsigned t, unsigned a, unsigned b, unsigned c) {
+    if (t < 20) {
+        return f0(a, b, c);
+    }
+    if (t < 40) {
+        return f20(a, b, c);
+    }
+    if (t < 60) {
+        return f40(a, b, c);
+    }
+    if ( t < 80) {
+        return f60(a, b, c);
+    }
+}
+
+
 void digest(unsigned char message[64]) {
     unsigned buff_a[5];
     unsigned buff_b[5] = { 0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0 };
     unsigned seq[80];
     unsigned temp;
 
-    for (size_t i = 0, j = 0; i < 16; i ++, j += 4) {
+    for (size_t i = 0, j = 0; i < 80; i ++, j += 4) {
 
-        seq[i] = *((unsigned*) &message[j]);
+        if (i < 16) {
+            seq[i] = *((unsigned*) &message[j]);
+        }
 
+        seq[i] = circular(1, (seq[i - 3] ^ seq[i - 8] ^ seq[i -14] ^ seq[i - 16]));
         /* unsigned char* ptr = (unsigned char*) &seq[i]; */
         /* for (int k = 0; k < 4; k++) { */
         /*     printf("%0.2x", *(ptr + (sizeof(unsigned char) * k))); */
         /* } */
     }
+
+    for (size_t i = 0; i < 5; i++) {
+        buff_a[i] = buff_b[i];
+    }
+
+    for (size_t i = 0; i < 80; i++) {
+
+    }
+
 }
 
 int main(void) {
     /* unsigned char buffer[64] = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"; */
-    unsigned char buffer[64] = "hello";
-    padding(buffer);
-    format(buffer);
-    puts("");
-    formatU(f0(buffer[0], buffer[1], buffer[2]));
-    puts("");
-    formatU(f20(buffer[0], buffer[1], buffer[2]));
-    puts("");
-    formatU(f40(buffer[0], buffer[1], buffer[2]));
-    puts("");
-    formatU(f60(buffer[0], buffer[1], buffer[2]));
-    puts("");
-    digest(buffer);
+    /* unsigned char buffer[64] = "hello"; */
+    /* padding(buffer); */
+    /* format(buffer); */
+    /* puts(""); */
+    /* formatU(f0(buffer[0], buffer[1], buffer[2])); */
+    /* puts(""); */
+    /* formatU(f20(buffer[0], buffer[1], buffer[2])); */
+    /* puts(""); */
+    /* formatU(f40(buffer[0], buffer[1], buffer[2])); */
+    /* puts(""); */
+    /* formatU(f60(buffer[0], buffer[1], buffer[2])); */
+    /* puts(""); */
+    /* digest(buffer); */
+    /* puts(""); */
+    /* unsigned tst = 12; */
+    /* int result = circular(31, &tst); */
+    /* printf("Main: %u : %u\n", result, tst); */
+    unsigned result = f(52, 13, 19, 10);
+    printf("%u\n", result);
 }
