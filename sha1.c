@@ -17,16 +17,24 @@ void format(unsigned char buffer[64]) {
         }
         printf("%0.2x", buffer[i]);
     }
+    puts("");
 }
 
-void formatU(unsigned u) {
+unsigned formatU(unsigned u) {
     unsigned long long formater = 0xFFULL << 0x18;
     unsigned comparator = 0x18;
+    unsigned reverter = 0x00;
+    unsigned char uch;
+    unsigned result;
+    unsigned char* p_result = (unsigned char*) &result + (sizeof(unsigned char) * 3);
     for (size_t i = 0; i < 4; i++) {
-        printf("%0.2x", (unsigned) (formater & u) >> comparator);
+        uch = (formater & u) >> comparator;
+        *p_result = uch;
         formater >>= 0x08;
         comparator -= 0x08;
+        p_result -= sizeof(unsigned char);
     }
+    return result;
 }
 
 void padding(unsigned char message[64]) {
@@ -97,6 +105,23 @@ unsigned (f)(unsigned t, unsigned a, unsigned b, unsigned c) {
     if ( t < 80) {
         return f60(a, b, c);
     }
+    return 0;
+}
+
+unsigned k(unsigned u) {
+    if (u < 20) {
+        return K1;
+    }
+    if (u < 40) {
+        return K2;
+    }
+    if (u < 60) {
+        return K3;
+    }
+    if (u < 80) {
+        return K4;
+    }
+    return 0;
 }
 
 
@@ -108,31 +133,52 @@ void digest(unsigned char message[64]) {
 
     for (size_t i = 0, j = 0; i < 80; i ++, j += 4) {
 
-        if (i < 16) {
+        if (i < 14) {
+            seq[i] = formatU(*((unsigned*) &message[j]));
+        } else if (i >= 14 && i < 16) {
             seq[i] = *((unsigned*) &message[j]);
+        } else {
+            seq[i] = circular(1, (seq[i - 3] ^ seq[i - 8] ^ seq[i - 14] ^ seq[i - 16]));
         }
-
-        seq[i] = circular(1, (seq[i - 3] ^ seq[i - 8] ^ seq[i -14] ^ seq[i - 16]));
+        printf("%0.2x", seq[i]);
         /* unsigned char* ptr = (unsigned char*) &seq[i]; */
         /* for (int k = 0; k < 4; k++) { */
         /*     printf("%0.2x", *(ptr + (sizeof(unsigned char) * k))); */
         /* } */
     }
+    puts("");
 
     for (size_t i = 0; i < 5; i++) {
         buff_a[i] = buff_b[i];
     }
 
     for (size_t i = 0; i < 80; i++) {
-
+        temp = circular(5, buff_a[0]) + f(i, buff_a[1], buff_a[2], buff_a[3]) + buff_a[4] + seq[i] + k(i);
+        buff_a[4] = buff_a[3];
+        buff_a[3] = buff_a[2];
+        buff_a[2] = circular(30, buff_a[1]);
+        buff_a[1] = buff_a[0];
+        buff_a[0] = temp;
     }
+
+    buff_b[0] = buff_b[0] + buff_a[0];
+    buff_b[1] = buff_b[1] + buff_a[1];
+    buff_b[2] = buff_b[2] + buff_a[2];
+    buff_b[3] = buff_b[3] + buff_a[3];
+    buff_b[4] = buff_b[4] + buff_a[4];
+
+    for (size_t i = 0; i < 5; i++) {
+        printf("%0.8x", buff_b[i]);
+    }
+
+    puts("");
 
 }
 
 int main(void) {
     /* unsigned char buffer[64] = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"; */
-    /* unsigned char buffer[64] = "hello"; */
-    /* padding(buffer); */
+    unsigned char buffer[64] = "abcde";
+    padding(buffer);
     /* format(buffer); */
     /* puts(""); */
     /* formatU(f0(buffer[0], buffer[1], buffer[2])); */
@@ -148,6 +194,7 @@ int main(void) {
     /* unsigned tst = 12; */
     /* int result = circular(31, &tst); */
     /* printf("Main: %u : %u\n", result, tst); */
-    unsigned result = f(52, 13, 19, 10);
-    printf("%u\n", result);
+    /* unsigned result = f(52, 13, 19, 10); */
+    /* printf("%u\n", result); */
+    digest(buffer);
 }
