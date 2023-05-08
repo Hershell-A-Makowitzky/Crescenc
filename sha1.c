@@ -1,6 +1,6 @@
-#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include <stddef.h>
 
 #define K1 0x5A827999
 #define K2 0x6ED9EBA1
@@ -173,7 +173,12 @@ void digest(word message[16]) {
             unsigned* tmp = (unsigned*) &seq[i];
             unsigned tmp1;
             tmp1 = *(tmp - 3) ^ *(tmp - 8) ^ *(tmp - 14) ^ *(tmp - 16);
-            circular(1, (word*)tmp);
+            circular(1, (word*) &tmp1);
+            /* unsigned char* p_seq = (unsigned char*) &seq[i]; */
+            /* for (size_t j = 0; j < 4; j++) { */
+            /*    printf("%0.2x", *p_seq); */
+            /*    p_seq++; */
+            /* } */
         /* word result; */
         /* for (size_t j = 0; j < 4; j++) { */
         /*     *p_seq = (*(p_seq - (3 * 4)) ^(*(p_seq - (8 * 4))) ^ (*(p_seq - (14 * 4))) ^ (*(p_seq - (16 * 4)))); */
