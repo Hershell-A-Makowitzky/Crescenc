@@ -40,8 +40,20 @@ fn wnot(x: Word) Word {
     return result;
 }
 
-fn f0(b: Word, c: Word, d: Word) Word {
-    return wor(wand(b, c), wand(wnot(b), d));
+fn f(u: u8, b: Word, c: Word, d: Word) !Word {
+    if (u <= 19 ) {
+        return wor(wand(b, c), wand(wnot(b), d));
+    }
+    if (u <= 39) {
+        return wxor(b, wxor(c, d));
+    }
+    if (u <= 59) {
+        return wor(wand(b, c), wor(wand(b, d), wand(c, d)));
+    }
+    if (u <= 79) {
+        return wxor(b, wxor(c, d));
+    }
+    return error.WordError;
 }
 
 fn padding(block: *Block, message: [] const u8) void {
@@ -66,17 +78,29 @@ fn padding(block: *Block, message: [] const u8) void {
     }
 }
 
-pub fn main() void {
-    // const a: Word = [_]u8 {'\x61', '\x62', '\x63', '\x64'};
-    // const b: Word = [_]u8 {'\x65', '\x66', '\x67', '\x68'};
-    // const c: Word = [_]u8 {'\x69', '\x70', '\x71', '\x72'};
-    // const result = f0(a, b, c);
-    // for (result) |val| {
-    //     std.debug.print("{x:0^2} ", .{val});
-    // }
-    const message = "Hello, World!";
+pub fn main() !void {
+    const a: Word = [_]u8 {'\x61', '\x62', '\x63', '\x64'};
+    const b: Word = [_]u8 {'\x65', '\x66', '\x67', '\x68'};
+    const c: Word = [_]u8 {'\x69', '\x70', '\x71', '\x72'};
+    const result = try f(42, a, b, c);
+    for (result) |val| {
+        std.debug.print("{x:0^2} ", .{val});
+    }
+    std.debug.print("\n", .{});
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+    const args = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args);
+    if (args.len != 2) {
+        std.debug.print("Usage '{s}' <string>\n", .{args[0]});
+        std.process.exit(1);
+    }
+
+    const message = args[1];
     // check(message);
     var block: Block = undefined;
     padding(&block, message);
+
     // std.debug.print("{}\n", .{@typeInfo(Block)});
 }
