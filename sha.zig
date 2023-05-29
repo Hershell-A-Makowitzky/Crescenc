@@ -1,5 +1,6 @@
 const std = @import("std");
 
+
 const Word: type = [4]u8;
 const Block: type = [64]u8;
 
