@@ -42,13 +42,13 @@ fn wnot(x: Word) Word {
 }
 
 fn circular(n: u5, w: Word) Word {
-    var tmpA: u64 = undefined;
-    var tmpB: u64 = undefined;
-    tmpA = std.mem.bytesToValue(u64, &w) << n;
-    tmpB = std.mem.bytesToValue(u64, &w) >> (32 - n);
-
-    var result: Word = wor((), (w >> (32 - n)));
-    return result;
+    var w1: Word = w;
+    var w2: Word = w;
+    var tmpA: *align(1) u32 = std.mem.bytesAsValue(u32, &w1);
+    var tmpB: *align(1) u32 = std.mem.bytesAsValue(u32, &w2);
+    tmpA.* <<= n;
+    tmpB.* >>= 31 - n + 1;
+    return wor(std.mem.bytesToValue(Word, @ptrCast(*Word, tmpA)), std.mem.bytesToValue(Word, @ptrCast(*Word, tmpB)));
 }
 
 fn f(u: u8, b: Word, c: Word, d: Word) !Word {
@@ -142,13 +142,13 @@ test "k" {
 
 pub fn main() !void {
     const a: Word = [_]u8 {'\x61', '\x62', '\x63', '\x64'};
-    const b: Word = [_]u8 {'\x65', '\x66', '\x67', '\x68'};
-    const c: Word = [_]u8 {'\x69', '\x70', '\x71', '\x72'};
-    const result = try f(42, a, b, c);
-    for (result) |val| {
-        std.debug.print("{x:0^2} ", .{val});
-    }
-    std.debug.print("\n", .{});
+    // const b: Word = [_]u8 {'\x65', '\x66', '\x67', '\x68'};
+    // const c: Word = [_]u8 {'\x69', '\x70', '\x71', '\x72'};
+    // const result = try f(42, a, b, c);
+    // for (result) |val| {
+    //     std.debug.print("{x:0^2} ", .{val});
+    // }
+    // std.debug.print("\n", .{});
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
