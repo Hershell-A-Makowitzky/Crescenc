@@ -40,6 +40,21 @@ fn wnot(x: Word) Word {
     return result;
 }
 
+fn wplus(x: Word, y: Word) Word {
+    var result: Word = undefined;
+    for (x) |val, i| {
+        result[i] = val +% y[i];
+    }
+    return result;
+}
+
+test "wplus" {
+    const w1: Word = [_]u8{ '\x61', '\x62', '\x63', '\x64' };
+    const w2: Word = [_]u8{ '\x65', '\x66', '\x67', '\x68' };
+    const w3: Word = wplus(w1, w2);
+    std.debug.assert(std.mem.eql(u8, &w3, &[_]u8{ '\xC6', '\xC8', '\xCA', '\xCC' }));
+}
+
 fn circular(n: u5, w: Word) Word {
     var w1: Word = w;
     var w2: Word = w;
@@ -117,20 +132,18 @@ test "k" {
 
 fn calculate(message: [] const u8) !void {
     var block: Block = undefined;
-    // var bufferA: [5]Word = {
-    //     [_]u8{ '\x67', '\x45', '\x23', '\x01' };
-    //     [_]u8{ '\xEF', '\xCD', '\xAB', '\x89' };
-    //     [_]u8{ '\x98', '\xBA', '\xDC', '\xFE' };
-    //     [_]u8{ '\x10', '\x32', '\x54', '\x76' };
-    //     [_]u8{ '\xC3', '\xD2', '\xE1', '\xF0' };
-    // };
-    // var bufferB: [5]Word = undefined;
-    // var temp: Word = undefined;
+    var bufferA: [5]Word = undefined;
+    var bufferB: [5]Word = [_]Word{
+        [_]u8{ '\x67', '\x45', '\x23', '\x01' },
+        [_]u8{ '\xEF', '\xCD', '\xAB', '\x89' },
+        [_]u8{ '\x98', '\xBA', '\xDC', '\xFE' },
+        [_]u8{ '\x10', '\x32', '\x54', '\x76' },
+        [_]u8{ '\xC3', '\xD2', '\xE1', '\xF0' },
+    };
+    var temp: Word = undefined;
     var seq: [80]Word = undefined;
 
     padding(&block, message);
-
-    std.debug.print("\n", .{});
 
     // for (block) |val, i| {
     //     seq[i] = val;
@@ -139,13 +152,36 @@ fn calculate(message: [] const u8) !void {
     for (seq) |*val, i| {
         if (i < 16) {
             val.* = block[i];
+        } else {
+            val.* = wxor(circular(1, seq[i - 3]), wxor(seq[i - 8], wxor(seq[i - 14], seq[i - 16])));
         }
-        // seq[i] = wxor(circular(1, seq[i - 3]), wxor(seq[i - 8], wxor(seq[i - 14], seq[i - 16])));
     }
-    // for (block) |value| {
-    //     std.debug.print("{x:0^2}", .{value});
+    // for (seq) |value| {
+    //     for (value) |val| {
+    //         std.debug.print("{x:0^2}", .{val});
+    //     }
     // }
-    for (seq) |value| {
+    for (bufferA) |*val, i| {
+        val.* = bufferB[i];
+    }
+
+    for ([_]u8{0} ** 80) |_, i| {
+        // std.debug.print("{d} ", .{i});
+        temp = wplus(circular(5, bufferA[0]), wplus(try f(@intCast(u8, i), bufferA[1], bufferA[2], bufferA[3]), wplus(bufferA[4], wplus(seq[i], try k(@intCast(u8, i))))));
+        bufferA[4] = bufferA[3];
+        bufferA[3] = bufferA[2];
+        bufferA[2] = circular(30, bufferA[1]);
+        bufferA[1] = bufferA[0];
+        bufferA[0] = temp;
+    }
+
+    bufferB[0] = wplus(bufferB[0], bufferA[0]);
+    bufferB[1] = wplus(bufferB[1], bufferA[1]);
+    bufferB[2] = wplus(bufferB[2], bufferA[2]);
+    bufferB[3] = wplus(bufferB[3], bufferA[3]);
+    bufferB[4] = wplus(bufferB[4], bufferA[4]);
+
+    for (bufferB) |value| {
         for (value) |val| {
             std.debug.print("{x:0^2}", .{val});
         }
@@ -172,12 +208,16 @@ pub fn main() !void {
     }
 
     const message = args[1];
+    // for (message) |val| {
+    //     std.debug.print("{d} ", .{val});
+    // }
     // check(message);
     // var block: Block = undefined;
     // padding(&block, message);
     // const msg = try k(40);
     // std.debug.print("\n", .{});
-    try calculate(message);
+    const result = try calculate(message);
+    _ = result;
     // for (msg) |val| {
     //     std.debug.print("{X:0^2} ", .{val});
     // }
