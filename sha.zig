@@ -1,8 +1,7 @@
 const std = @import("std");
 
-
 const Word: type = [4]u8;
-const Block: type = [64]u8;
+const Block: type = [16]Word;
 
 const K1: Word = [_]u8{'\x5A', '\x82', '\x79', '\x99'};
 const K2: Word = [_]u8{'\x6E', '\xD9', '\xEB', '\xA1'};
@@ -80,14 +79,14 @@ fn k(u: u8) !Word {
     if (u <= 79) {
         return K4;
     }
-    return error.KError;
+    return error.WordError;
 }
 
 fn padding(block: *Block, message: [] const u8) void {
     var formator: u64 = 0xff << 0x38;
     var comparator: u6 = 56;
-    @memcpy(block, @ptrCast([*]const u8, message), message.len);
-    for (block) |*value, i| {
+    @memcpy(@ptrCast([*]u8, block), @ptrCast([*]const u8, message), message.len);
+    for (@ptrCast(*[64]u8, block)) |*value, i| {
         if (i == message.len) {
             value.* = '\x80';
         }
@@ -99,9 +98,9 @@ fn padding(block: *Block, message: [] const u8) void {
             formator >>= 8;
             comparator -|= 8;
         }
-        if (i % 4 == 0) std.debug.print(" ", .{});
-        if (i % 16 == 0) std.debug.print("\n", .{});
-        std.debug.print("{x:0^2}", .{value.*});
+        // if (i % 4 == 0) std.debug.print(" ", .{});
+        // if (i % 16 == 0) std.debug.print("\n", .{});
+        // std.debug.print("{x:0^2}", .{value.*});
     }
 }
 
@@ -116,32 +115,45 @@ test "k" {
     std.debug.assert(std.mem.eql(u8, &K4, &k4));
 }
 
-// fn calculate(message: [] const u8) !void {
-//     var block: Block = undefined;
-//     var bufferA: [5]Word = {
-//         [_]u8{ '\x67', '\x45', '\x23', '\x01' };
-//         [_]u8{ '\xEF', '\xCD', '\xAB', '\x89' };
-//         [_]u8{ '\x98', '\xBA', '\xDC', '\xFE' };
-//         [_]u8{ '\x10', '\x32', '\x54', '\x76' };
-//         [_]u8{ '\xC3', '\xD2', '\xE1', '\xF0' };
-//     };
-//     var bufferB: [5]Word = undefined;
-//     var temp: Word = undefined;
-//     var seq: [80]Word = undefined;
+fn calculate(message: [] const u8) !void {
+    var block: Block = undefined;
+    // var bufferA: [5]Word = {
+    //     [_]u8{ '\x67', '\x45', '\x23', '\x01' };
+    //     [_]u8{ '\xEF', '\xCD', '\xAB', '\x89' };
+    //     [_]u8{ '\x98', '\xBA', '\xDC', '\xFE' };
+    //     [_]u8{ '\x10', '\x32', '\x54', '\x76' };
+    //     [_]u8{ '\xC3', '\xD2', '\xE1', '\xF0' };
+    // };
+    // var bufferB: [5]Word = undefined;
+    // var temp: Word = undefined;
+    var seq: [80]Word = undefined;
 
-//     padding(&block, message);
+    padding(&block, message);
 
-//     for (block) |val, i| {
-//         seq[i] = val;
-//     }
+    std.debug.print("\n", .{});
 
-//     for ([_]u8{} ** 64) |_, i| {
-//         seq[i + 16] =
-//     }
-// }
+    // for (block) |val, i| {
+    //     seq[i] = val;
+    // }
+
+    for (seq) |*val, i| {
+        if (i < 16) {
+            val.* = block[i];
+        }
+        // seq[i] = wxor(circular(1, seq[i - 3]), wxor(seq[i - 8], wxor(seq[i - 14], seq[i - 16])));
+    }
+    // for (block) |value| {
+    //     std.debug.print("{x:0^2}", .{value});
+    // }
+    for (seq) |value| {
+        for (value) |val| {
+            std.debug.print("{x:0^2}", .{val});
+        }
+    }
+}
 
 pub fn main() !void {
-    const a: Word = [_]u8 {'\x61', '\x62', '\x63', '\x64'};
+    // const a: Word = [_]u8 {'\x61', '\x62', '\x63', '\x64'};
     // const b: Word = [_]u8 {'\x65', '\x66', '\x67', '\x68'};
     // const c: Word = [_]u8 {'\x69', '\x70', '\x71', '\x72'};
     // const result = try f(42, a, b, c);
@@ -161,17 +173,18 @@ pub fn main() !void {
 
     const message = args[1];
     // check(message);
-    var block: Block = undefined;
-    padding(&block, message);
+    // var block: Block = undefined;
+    // padding(&block, message);
     // const msg = try k(40);
+    // std.debug.print("\n", .{});
+    try calculate(message);
+    // for (msg) |val| {
+    //     std.debug.print("{X:0^2} ", .{val});
+    // }
+    // const msg = circular(2, a);
     // std.debug.print("\n", .{});
     // for (msg) |val| {
     //     std.debug.print("{X:0^2} ", .{val});
     // }
-    const msg = circular(2, a);
-    std.debug.print("\n", .{});
-    for (msg) |val| {
-        std.debug.print("{X:0^2} ", .{val});
-    }
     // std.debug.print("{}\n", .{@typeInfo(Block)});
 }
