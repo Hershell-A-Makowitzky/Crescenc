@@ -41,11 +41,15 @@ fn wnot(x: Word) Word {
 }
 
 fn wplus(x: Word, y: Word) Word {
-    var result: Word = undefined;
-    for (x) |val, i| {
-        result[i] = val +% y[i];
-    }
-    return result;
+    return convertFromU32(convertToU32(x) +% convertToU32(y));
+}
+
+fn convertToU32(str: Word) u32 {
+    return std.mem.readInt(u32, &str, std.Target.Cpu.Arch.endian(std.Target.Cpu.Arch.arm));
+}
+
+fn convertFromU32(u: u32) Word {
+    return std.mem.toBytes(u);
 }
 
 test "wplus" {
