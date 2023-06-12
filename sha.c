@@ -15,7 +15,7 @@ static word circular(unsigned u, word w) {
         return (w << u) | (w >> (32 - u));
 }
 
-static void padding(const char* message, const word* padded) {
+static void padding(const char* message, word* padded) {
     uint64_t length = strlen(message);
     unsigned char* p_length = (unsigned char*) &length;
     unsigned char* w_p = (unsigned char*) padded;
@@ -34,8 +34,15 @@ static void padding(const char* message, const word* padded) {
     for (size_t i = 0; i < 8; i++) {
         w_p[56 + i] = p_length[7 - i];
     }
+    w_p = (unsigned char*) padded;
+    word result;
+    unsigned char* p_result = (unsigned char*) &result;
     for (size_t i = 0; i < 16; i++) {
-
+        for (size_t j = 0; j < 4; j++) {
+            p_result[j] = w_p[3 - j];
+        }
+        w_p += sizeof(uint32_t);
+        padded[i] = result;
     }
 }
 
@@ -79,6 +86,18 @@ static void calculate(char* message) {
     word bufferB[5] = { 0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0 };
     word sequence[80] = {'\0'};
     padding(message, padded);
+    /* unsigned char* p_padded = (unsigned char*) padded; */
+
+    /* for (size_t i = 0; i < 64; i++) { */
+    /*     if (i % 4 == 0) { */
+    /*         printf(" "); */
+    /*     } */
+    /*     if (i % 16 == 0) { */
+    /*         printf("\n"); */
+    /*     } */
+    /*     printf("%0.2x", p_padded[i]); */
+    /* } */
+    /* printf("\n"); */
 
     for (size_t i = 0; i < 80; i++) {
         if (i < 16) {
@@ -106,11 +125,19 @@ static void calculate(char* message) {
     bufferB[3] = bufferB[3] + bufferA[3];
     bufferB[4] = bufferB[4] + bufferA[4];
 
-    for (size_t i = 0; i < 20; i++) {
-        unsigned char* p_word = (unsigned char*) &bufferB;
-        printf("%0.2x", p_word[i]);
+    /* for (size_t i = 0; i < 20; i++) { */
+    /*     unsigned char* p_word = (unsigned char*) &bufferB; */
+    /*     printf("%0.2x", p_word[i]); */
+    /* } */
+    /* puts(""); */
+    unsigned char* w_p;
+    for (size_t i = 0; i < 5; i++) {
+        for (size_t j = 0; j < 4; j++) {
+            w_p = (unsigned char*) &bufferB[i];
+            printf("%0.2x", w_p[3 - j]);
+        }
     }
-    puts("");
+    printf("\n");
 }
 
 int main(int argc, char** argv) {
