@@ -1,4 +1,6 @@
 #include <string.h>
+#include <errno.h>
+#include <unistd.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -137,13 +139,50 @@ static void calculate(char* message) {
             printf("%0.2x", w_p[3 - j]);
         }
     }
-    printf("\n");
 }
 
 int main(int argc, char** argv) {
-    if (argc != 2) {
-        fprintf(stdout, "Usage: %s <string>\n", argv[0]);
-        return 1;
+    /* if (argc != 2) { */
+    /*     fprintf(stdout, "Usage: %s <string>\n", argv[0]); */
+    /*     return 1; */
+    /* } */
+    char buffer[56];
+    if (argc == 1 || (argc == 2 && strcmp(argv[1], "-") == 0)) {
+        if (read(fileno(stdin), (void*) buffer, 56) == -1) {
+            fprintf(stderr, "Error while reading. ERRNO: %d\n", errno);
+            return errno;
+        }
+        calculate(buffer);
+        printf("  -\n");
     }
-    calculate(argv[1]);
+
+    if (argc > 1 && strcmp(argv[1], "-") != 0) {
+        size_t i = 1;
+        FILE* fp;
+        while (argv[i] != NULL) {
+            if (fp = fopen(argv[i], "r"), fp == NULL) {
+                fprintf(stderr, "%s: %s: No such file or directory\n", argv[0], argv[i]);
+                i++;
+                continue;
+                if (fclose(fp) == EOF) {
+                    fprintf(stderr, "Error while file closing. File: %s - ERRNO: %d\n", argv[i], errno);
+                    return errno;
+                }
+                return errno;
+            }
+            if (read(fileno(fp), (void*) buffer, 56) == -1) {
+                fprintf(stderr, "Error while reading. ERRNO: %d\n", errno);
+                return errno;
+            }
+
+            calculate(buffer);
+            printf("  %s\n", argv[i]);
+
+            if (fclose(fp) == EOF) {
+                fprintf(stderr, "Error while file closing. File: %s - ERRNO: %d\n", argv[i], errno);
+                return errno;
+            }
+            i++;
+        }
+    }
 }
