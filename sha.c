@@ -1,5 +1,5 @@
 #include <string.h>
-#include <errno.h>
+#include <sys/errno.h>
 #include <unistd.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -161,17 +161,16 @@ int main(int argc, char** argv) {
         FILE* fp;
         while (argv[i] != NULL) {
             if (fp = fopen(argv[i], "r"), fp == NULL) {
-                fprintf(stderr, "%s: %s: No such file or directory\n", argv[0], argv[i]);
+                fprintf(stderr, "%s: %s: No such file or directory.\n", argv[0], argv[i]);
                 i++;
                 continue;
+            }
+            if (read(fileno(fp), (void*) buffer, 56) == -1) {
+                fprintf(stderr, "Error while reading. ERRNO: %d\n", errno);
                 if (fclose(fp) == EOF) {
                     fprintf(stderr, "Error while file closing. File: %s - ERRNO: %d\n", argv[i], errno);
                     return errno;
                 }
-                return errno;
-            }
-            if (read(fileno(fp), (void*) buffer, 56) == -1) {
-                fprintf(stderr, "Error while reading. ERRNO: %d\n", errno);
                 return errno;
             }
 
