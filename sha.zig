@@ -13,6 +13,8 @@ var bufferB: [5]u32 = [_]u32{
     0xC3D2E1F0,
 };
 
+var lenght: u32 = 0;
+
 fn circular(n: u5, w: u32) u32 {
     return (w << n) | (w >> ((31 - n) + 1));
 }
@@ -170,7 +172,7 @@ fn calculateHash(message: *[16] u32) [5]u32 {
         val.* = bufferB[i];
     }
 
-    for ([_]u8{0} ** 80, 0..) |_, i| {
+    for (0..80, 0..) |_, i| {
         temp = circular(5, bufferA[0]) +% f(i, bufferA[1], bufferA[2], bufferA[3]) +% bufferA[4] +% seq[i] +% k(i);
         bufferA[4] = bufferA[3];
         bufferA[3] = bufferA[2];
@@ -192,7 +194,7 @@ fn printHash(hash: [5]u32) void {
     for (hash) |val| {
         std.debug.print("{x:0>8}", .{val});
     }
-    std.debug.print("\n", .{});
+    // std.debug.print("\n", .{});
 }
 
 fn printPadded(block: [16]u32) void {
@@ -298,13 +300,27 @@ pub fn main() !void {
     const allocator = gpa.allocator();
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
-    if (args.len != 2) {
-        std.debug.print("Usage '{s}' <string>\n", .{args[0]});
-        std.process.exit(1);
+    // if (args.len != 2) {
+    //     std.debug.print("Usage '{s}' <string>\n", .{args[0]});
+    //     std.process.exit(1);
+    // }
+    // const message = args[1];
+    if (args.len == 1 or std.mem.eql(u8, args[1], "-")) {
+    // std.debug.print("{}\n", .{args.len});
+    // std.debug.print("{}\n", .{std.mem.eql(u8, message, "-")});
+    // std.debug.print("ARGS: {s}\n", .{message});
+        const stdin = std.io.getStdIn();
+        var buffer: [64]u8 = undefined;
+        var index = try stdin.read(&buffer);
+        while (index > 0) {
+            _ = try splitMessage(buffer[0..index]);
+            index = try stdin.read(&buffer);
+        }
+        std.debug.print("  -\n", .{});
+    } else {
+        std.debug.print("IN ELSE BRANCH\n", .{});
     }
-    const message = args[1];
     // std.debug.print("{s}\n", .{message});
     // const result = try calculateHash(message);
     // printHash(result);
-    _ = try splitMessage(message);
 }
