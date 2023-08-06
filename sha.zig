@@ -13,8 +13,6 @@ var bufferB: [5]u32 = [_]u32{
     0xC3D2E1F0,
 };
 
-var lenght: u32 = 0;
-
 fn circular(n: u5, w: u32) u32 {
     return (w << n) | (w >> ((31 - n) + 1));
 }
