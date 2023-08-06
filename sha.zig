@@ -1,3 +1,5 @@
+// compilation: "zig build-exe -OReleaseFast -fstrip --name hersha sha.zig"
+
 const std = @import("std");
 
 const K1: u32 = 0x5A827999;
