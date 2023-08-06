@@ -77,7 +77,6 @@ fn padding(message: []const u8) [16]u32 {
     }
     return padded;
 }
-
 fn paddingSpecial(message: []const u8, tail: usize) [16]u32 {
     var padded: [16]u32 = undefined;
     const p_padded: *[64]u8 = @as(*[64]u8, @ptrCast(&padded));
@@ -151,7 +150,7 @@ fn messageToBLock(message: []const u8) [16]u32 {
     return block;
 }
 
-fn calculateHash(message: *[16] u32) [5]u32 {
+fn calculateHash(message: *[16]u32) [5]u32 {
     // var block: [16]u32 = messageToBLock(message);
     // var block: *[16]u32 = @ptrCast(&message);
     var bufferA: [5]u32 = undefined;
@@ -306,16 +305,75 @@ pub fn main() !void {
     // }
     // const message = args[1];
     if (args.len == 1 or std.mem.eql(u8, args[1], "-")) {
-    // std.debug.print("{}\n", .{args.len});
-    // std.debug.print("{}\n", .{std.mem.eql(u8, message, "-")});
-    // std.debug.print("ARGS: {s}\n", .{message});
+        // std.debug.print("{}\n", .{args.len});
+        // std.debug.print("{}\n", .{std.mem.eql(u8, message, "-")});
+        // std.debug.print("ARGS: {s}\n", .{message});
         const stdin = std.io.getStdIn();
         var buffer: [64]u8 = undefined;
         var index = try stdin.read(&buffer);
-        while (index > 0) {
-            _ = try splitMessage(buffer[0..index]);
+        var strlen: usize = undefined;
+        while (index == 64) {
+            // std.debug.print("In while loop\n", .{});
+            strlen += index;
+            var rest = padding(buffer[0..index]);
+            // printPadded(rest);
+            _ = calculateHash(&rest);
             index = try stdin.read(&buffer);
         }
+        switch (index) {
+            0 => {
+                // std.debug.print("Out of while loop\n", .{});
+                var rest = paddingEndSpecial(strlen);
+                // printPadded(rest);
+                const result = calculateHash(&rest);
+                printHash(result);
+            },
+            1...55 => {
+                // std.debug.print("In lower 56\n", .{});
+                strlen += index;
+                var rest = paddingShort(buffer[0..index], strlen, index);
+                // printPadded(rest);
+                const result = calculateHash(&rest);
+                printHash(result);
+            },
+            56...63 => {
+                // std.debug.print("In between 56 and 64\n", .{});
+                // std.debug.print("56 and 64\n", .{});
+                strlen += index;
+                var rest = paddingSpecial(buffer[0..index], index);
+                // printPadded(rest);
+                _ = calculateHash(&rest);
+                rest = paddingEnd(strlen);
+                // printPadded(rest);
+                const result = calculateHash(&rest);
+                printHash(result);
+            },
+            else => {}
+        }
+        // if (index == 0) {
+        //     std.debug.print("Out of while loop\n", .{});
+        //     var rest = paddingEndSpecial(strlen);
+        //     printPadded(rest);
+        //     const result = calculateHash(&rest);
+        //     printHash(result);
+        // }
+        // if (index < 56) {
+        //     std.debug.print("In lower 56\n", .{});
+        //     var rest = paddingSpecial(buffer[0..index], index);
+        //     const result = calculateHash(&rest);
+        //     printHash(result);
+        // }
+        // if (index >= 56 and index < 64) {
+        //     std.debug.print("In between 56 and 64\n", .{});
+        //     // std.debug.print("56 and 64\n", .{});
+        //     var rest = paddingSpecial(buffer[0..index], index);
+        //     // printPadded(rest);
+        //     _ = calculateHash(&rest);
+        //     rest = paddingEnd(strlen);
+        //     // printPadded(rest);
+        //     const result = calculateHash(&rest);
+        //     printHash(result);
+        // }
         std.debug.print("  -\n", .{});
     } else {
         std.debug.print("IN ELSE BRANCH\n", .{});
