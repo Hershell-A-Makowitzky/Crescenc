@@ -130,15 +130,6 @@ fn paddingEndSpecial(length: usize) [16]u32 {
     return padded;
 }
 
-fn messageToBLock(message: []const u8) [16]u32 {
-    var block: [16]u32 = undefined;
-    const p_padded: *[64]u8 = @as(*[64]u8, @ptrCast(&block));
-    for (0..64, 0..) |_, i| {
-        p_padded[i] = message[i];
-    }
-    return block;
-}
-
 fn calculateHash(message: *[16]u32) [5]u32 {
     var bufferA: [5]u32 = undefined;
     var temp: u32 = undefined;
