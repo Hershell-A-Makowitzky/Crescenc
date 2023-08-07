@@ -1,3 +1,5 @@
+// Reference implementation of SHA1 algorithm according to "https://www.rfc-editor.org/rfc/rfc3174"
+// Only for studying purposes
 // compilation: "zig build-exe -OReleaseFast -fstrip --name hersha sha.zig"
 
 const std = @import("std");
