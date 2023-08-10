@@ -227,8 +227,6 @@ pub fn main() !void {
         std.debug.print("  -\n", .{});
     } else {
         for (args) |arg| {
-            // const fd = try std.os.open(arg, 0, 0);
-            // defer std.os.close(fd);
             const file = std.fs.cwd().openFile(arg, .{}) catch {
                 std.debug.print("hersha: {s}: No such file or directory\n", .{arg});
                 continue;
