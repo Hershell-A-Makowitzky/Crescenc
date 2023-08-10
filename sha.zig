@@ -192,6 +192,7 @@ pub fn main() !void {
     defer std.process.argsFree(allocator, args);
     if (args.len == 1 or std.mem.eql(u8, args[1], "-")) {
         const stdin = std.io.getStdIn();
+        defer stdin.close();
         var buffer: [64]u8 = undefined;
         var index = try stdin.read(&buffer);
         var strlen: usize = undefined;
@@ -225,6 +226,14 @@ pub fn main() !void {
         }
         std.debug.print("  -\n", .{});
     } else {
-        std.debug.print("IN ELSE BRANCH\n", .{});
+        for (args) |arg| {
+            // const fd = try std.os.open(arg, 0, 0);
+            // defer std.os.close(fd);
+            const file = std.fs.cwd().openFile(arg, .{}) catch {
+                std.debug.print("hersha: {s}: No such file or directory\n", .{arg});
+                continue;
+            };
+            defer file.close();
+        }
     }
 }
