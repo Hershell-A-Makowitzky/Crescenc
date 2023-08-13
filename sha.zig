@@ -10,6 +10,7 @@ const K3: u32 = 0x8F1BBCDC;
 const K4: u32 = 0xCA62C1D6;
 
 const Flags = enum {
+    null,
     binary,
     check,
     tag,
@@ -22,6 +23,11 @@ const Flags = enum {
     warn,
     help,
     version
+};
+
+const FlagsProcessor = struct {
+    f: [12]Flags,
+    a: u8,
 };
 
 var bufferB: [5]u32 = [_]u32{
@@ -235,9 +241,50 @@ fn processBuffer(file: std.fs.File, name: []const u8) !void {
     }
 }
 
-// fn processOptions(args: []const [:0]u8) void {
+fn processOptions(args: []const [:0]u8) !FlagsProcessor {
+    var flags = FlagsProcessor {
+        .f = [_]Flags{Flags.zero} ** 12,
+        .a = 0,
+    };
+    for (args[1..]) |arg| {
+        if (!std.mem.startsWith(u8, arg, "-")) {
+            continue;
+        }
+        if (
+            std.mem.eql(u8, arg, "-b") or
+            std.mem.eql(u8, arg, "--b") or
+            std.mem.eql(u8, arg, "--bi") or
+            std.mem.eql(u8, arg, "--bin") or
+            std.mem.eql(u8, arg, "--bina") or
+            std.mem.eql(u8, arg, "--binar") or
+            std.mem.eql(u8, arg, "--binary")
+        ) {
+            flags.f[0] = Flags.binary;
+            continue;
+        }
+        if (
+            std.mem.eql(u8, arg, "-c") or
+            std.mem.eql(u8, arg, "--c") or
+            std.mem.eql(u8, arg, "--ch") or
+            std.mem.eql(u8, arg, "--che") or
+            std.mem.eql(u8, arg, "--chec") or
+            std.mem.eql(u8, arg, "--check")
+        ) {
+            flags.f[1] = Flags.check;
+            continue;
+        }
+        std.debug.print("{s}: invalid option -- '{s}'\nTry '{s} --help' for more details", .{args[0], arg, args[0]});
+        return error.Option;
+    }
+    for (flags.f) |flag| {
+        if (flag != Flags.zero) {
+            flags.a += 1;
+        }
+    }
+    return flags;
+}
 
-// }
+// fn handleError() {}
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -245,7 +292,12 @@ pub fn main() !void {
     const allocator = gpa.allocator();
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
-    // const stdout = std.io.getStdOut().writer();
+    const flags = processOptions(args) catch {
+        std.process.exit(1);
+    };
+    for (flags.f) |flag| {
+        std.debug.print("{any}\n", .{flag});
+    }
     if (args.len == 1 or std.mem.eql(u8, args[1], "-")) {
         const stdin = std.io.getStdIn();
         defer stdin.close();
@@ -253,13 +305,15 @@ pub fn main() !void {
         // try stdout.print("  -\n", .{});
     } else {
         for (args[1..]) |arg| {
-            const file = std.fs.cwd().openFile(arg, .{}) catch {
-                std.debug.print("hersha: {s}: No such file or directory\n", .{arg});
-                continue;
-            };
-            defer file.close();
-            try processBuffer(file, arg);
-            // try stdout.print("  {s}\n", .{arg});
+            if (!std.mem.startsWith(u8, arg, "-")) {
+                const file = std.fs.cwd().openFile(arg, .{}) catch {
+                    std.debug.print("hersha: {s}: No such file or directory\n", .{arg});
+                    continue;
+                };
+                defer file.close();
+                try processBuffer(file, arg);
+                // try stdout.print("  {s}\n", .{arg});
+            }
         }
     }
 }
