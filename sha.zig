@@ -9,6 +9,21 @@ const K2: u32 = 0x6ED9EBA1;
 const K3: u32 = 0x8F1BBCDC;
 const K4: u32 = 0xCA62C1D6;
 
+const Flags = enum {
+    binary,
+    check,
+    tag,
+    text,
+    zero,
+    ingnoreMissing,
+    quiet,
+    status,
+    strict,
+    warn,
+    help,
+    version
+};
+
 var bufferB: [5]u32 = [_]u32{
     0x67452301,
     0xEFCDAB89,
@@ -168,10 +183,12 @@ fn calculateHash(message: *[16]u32) [5]u32 {
     return bufferB;
 }
 
-fn printHash(hash: [5]u32) void {
+fn printHash(hash: [5]u32, file: []const u8) !void {
+    const stdout = std.io.getStdOut().writer();
     for (hash) |val| {
-        std.debug.print("{x:0>8}", .{val});
+        try stdout.print("{x:0>8}", .{val});
     }
+    try stdout.print("  {s}\n", .{file});
 }
 
 fn printPadded(block: [16]u32) void {
@@ -184,7 +201,7 @@ fn printPadded(block: [16]u32) void {
     std.debug.print("\n\n", .{});
 }
 
-fn processBuffer(file: std.fs.File) !void {
+fn processBuffer(file: std.fs.File, name: []const u8) !void {
     var buffer: [64]u8 = undefined;
     var index = try file.read(&buffer);
     var strlen: usize = undefined;
@@ -198,13 +215,13 @@ fn processBuffer(file: std.fs.File) !void {
         0 => {
             var rest = paddingEndSpecial(strlen);
             const result = calculateHash(&rest);
-            printHash(result);
+            try printHash(result, name);
         },
         1...55 => {
             strlen += index;
             var rest = paddingShort(buffer[0..index], strlen, index);
             const result = calculateHash(&rest);
-            printHash(result);
+            try printHash(result, name);
         },
         56...63 => {
             strlen += index;
@@ -212,11 +229,15 @@ fn processBuffer(file: std.fs.File) !void {
             _ = calculateHash(&rest);
             rest = paddingEnd(strlen);
             const result = calculateHash(&rest);
-            printHash(result);
+            try printHash(result, name);
         },
         else => {}
     }
 }
+
+// fn processOptions(args: []const [:0]u8) void {
+
+// }
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -224,11 +245,12 @@ pub fn main() !void {
     const allocator = gpa.allocator();
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
+    // const stdout = std.io.getStdOut().writer();
     if (args.len == 1 or std.mem.eql(u8, args[1], "-")) {
         const stdin = std.io.getStdIn();
         defer stdin.close();
-        try processBuffer(stdin);
-        std.debug.print("  -\n", .{});
+        try processBuffer(stdin, "-");
+        // try stdout.print("  -\n", .{});
     } else {
         for (args[1..]) |arg| {
             const file = std.fs.cwd().openFile(arg, .{}) catch {
@@ -236,8 +258,8 @@ pub fn main() !void {
                 continue;
             };
             defer file.close();
-            try processBuffer(file);
-            std.debug.print("  {s}\n", .{arg});
+            try processBuffer(file, arg);
+            // try stdout.print("  {s}\n", .{arg});
         }
     }
 }
