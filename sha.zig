@@ -184,6 +184,40 @@ fn printPadded(block: [16]u32) void {
     std.debug.print("\n\n", .{});
 }
 
+fn processBuffer(file: std.fs.File) !void {
+    var buffer: [64]u8 = undefined;
+    var index = try file.read(&buffer);
+    var strlen: usize = undefined;
+    while (index == 64) {
+        strlen += index;
+        var rest = padding(buffer[0..index]);
+        _ = calculateHash(&rest);
+        index = try file.read(&buffer);
+    }
+    switch (index) {
+        0 => {
+            var rest = paddingEndSpecial(strlen);
+            const result = calculateHash(&rest);
+            printHash(result);
+        },
+        1...55 => {
+            strlen += index;
+            var rest = paddingShort(buffer[0..index], strlen, index);
+            const result = calculateHash(&rest);
+            printHash(result);
+        },
+        56...63 => {
+            strlen += index;
+            var rest = paddingSpecial(buffer[0..index], index);
+            _ = calculateHash(&rest);
+            rest = paddingEnd(strlen);
+            const result = calculateHash(&rest);
+            printHash(result);
+        },
+        else => {}
+    }
+}
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -193,45 +227,17 @@ pub fn main() !void {
     if (args.len == 1 or std.mem.eql(u8, args[1], "-")) {
         const stdin = std.io.getStdIn();
         defer stdin.close();
-        var buffer: [64]u8 = undefined;
-        var index = try stdin.read(&buffer);
-        var strlen: usize = undefined;
-        while (index == 64) {
-            strlen += index;
-            var rest = padding(buffer[0..index]);
-            _ = calculateHash(&rest);
-            index = try stdin.read(&buffer);
-        }
-        switch (index) {
-            0 => {
-                var rest = paddingEndSpecial(strlen);
-                const result = calculateHash(&rest);
-                printHash(result);
-            },
-            1...55 => {
-                strlen += index;
-                var rest = paddingShort(buffer[0..index], strlen, index);
-                const result = calculateHash(&rest);
-                printHash(result);
-            },
-            56...63 => {
-                strlen += index;
-                var rest = paddingSpecial(buffer[0..index], index);
-                _ = calculateHash(&rest);
-                rest = paddingEnd(strlen);
-                const result = calculateHash(&rest);
-                printHash(result);
-            },
-            else => {}
-        }
+        try processBuffer(stdin);
         std.debug.print("  -\n", .{});
     } else {
-        for (args) |arg| {
+        for (args[1..]) |arg| {
             const file = std.fs.cwd().openFile(arg, .{}) catch {
                 std.debug.print("hersha: {s}: No such file or directory\n", .{arg});
                 continue;
             };
             defer file.close();
+            try processBuffer(file);
+            std.debug.print("  {s}\n", .{arg});
         }
     }
 }
