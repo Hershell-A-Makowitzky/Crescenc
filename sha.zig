@@ -10,7 +10,7 @@ const K3: u32 = 0x8F1BBCDC;
 const K4: u32 = 0xCA62C1D6;
 
 const Flags = enum {
-    null,
+    std,
     binary,
     check,
     tag,
@@ -189,10 +189,14 @@ fn calculateHash(message: *[16]u32) [5]u32 {
     return bufferB;
 }
 
-fn printHash(hash: [5]u32, file: []const u8) !void {
+fn printHash(hash: [5]u32, file: []const u8, flag: Flags) !void {
     const stdout = std.io.getStdOut().writer();
     for (hash) |val| {
         try stdout.print("{x:0>8}", .{val});
+    }
+    if (flag == Flags.zero) {
+        try stdout.print("  {s}\x00", .{file});
+        return;
     }
     try stdout.print("  {s}\n", .{file});
 }
@@ -207,7 +211,7 @@ fn printPadded(block: [16]u32) void {
     std.debug.print("\n\n", .{});
 }
 
-fn processBuffer(file: std.fs.File, name: []const u8) !void {
+fn processBuffer(file: std.fs.File, name: []const u8, flag: Flags) !void {
     var buffer: [64]u8 = undefined;
     var index = try file.read(&buffer);
     var strlen: usize = undefined;
@@ -221,13 +225,13 @@ fn processBuffer(file: std.fs.File, name: []const u8) !void {
         0 => {
             var rest = paddingEndSpecial(strlen);
             const result = calculateHash(&rest);
-            try printHash(result, name);
+            try printHash(result, name, flag);
         },
         1...55 => {
             strlen += index;
             var rest = paddingShort(buffer[0..index], strlen, index);
             const result = calculateHash(&rest);
-            try printHash(result, name);
+            try printHash(result, name, flag);
         },
         56...63 => {
             strlen += index;
@@ -235,75 +239,19 @@ fn processBuffer(file: std.fs.File, name: []const u8) !void {
             _ = calculateHash(&rest);
             rest = paddingEnd(strlen);
             const result = calculateHash(&rest);
-            try printHash(result, name);
+            try printHash(result, name, flag);
         },
         else => {}
     }
 }
 
-fn processOptions(args: []const [:0]u8) !FlagsProcessor {
-    var flags = FlagsProcessor {
-        .f = [_]Flags{Flags.zero} ** 12,
-        .a = 0,
-    };
-    for (args[1..]) |arg| {
-        if (!std.mem.startsWith(u8, arg, "-")) {
-            continue;
-        }
-        if (
-            std.mem.eql(u8, arg, "-b") or
-            std.mem.eql(u8, arg, "--b") or
-            std.mem.eql(u8, arg, "--bi") or
-            std.mem.eql(u8, arg, "--bin") or
-            std.mem.eql(u8, arg, "--bina") or
-            std.mem.eql(u8, arg, "--binar") or
-            std.mem.eql(u8, arg, "--binary")
-        ) {
-            flags.f[0] = Flags.binary;
-            continue;
-        }
-        if (
-            std.mem.eql(u8, arg, "-c") or
-            std.mem.eql(u8, arg, "--c") or
-            std.mem.eql(u8, arg, "--ch") or
-            std.mem.eql(u8, arg, "--che") or
-            std.mem.eql(u8, arg, "--chec") or
-            std.mem.eql(u8, arg, "--check")
-        ) {
-            flags.f[1] = Flags.check;
-            continue;
-        }
-        std.debug.print("{s}: invalid option -- '{s}'\nTry '{s} --help' for more details", .{args[0], arg, args[0]});
-        return error.Option;
-    }
-    for (flags.f) |flag| {
-        if (flag != Flags.zero) {
-            flags.a += 1;
-        }
-    }
-    return flags;
-}
-
-// fn handleError() {}
-
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
-    const args = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, args);
-    const flags = processOptions(args) catch {
-        std.process.exit(1);
-    };
-    for (flags.f) |flag| {
-        std.debug.print("{any}\n", .{flag});
-    }
+fn handleOptions(args: [][:0]u8) !void {
     if (args.len == 1 or std.mem.eql(u8, args[1], "-")) {
         const stdin = std.io.getStdIn();
         defer stdin.close();
-        try processBuffer(stdin, "-");
-        // try stdout.print("  -\n", .{});
-    } else {
+        try processBuffer(stdin, "-", Flags.std);
+    }
+    if (std.mem.eql(u8, args[1], "-z") or (std.mem.eql(u8, args[1], "--zero"))) {
         for (args[1..]) |arg| {
             if (!std.mem.startsWith(u8, arg, "-")) {
                 const file = std.fs.cwd().openFile(arg, .{}) catch {
@@ -311,9 +259,27 @@ pub fn main() !void {
                     continue;
                 };
                 defer file.close();
-                try processBuffer(file, arg);
-                // try stdout.print("  {s}\n", .{arg});
+                try processBuffer(file, arg, Flags.zero);
             }
         }
     }
+    if (!std.mem.startsWith(u8, args[1], "-")) {
+        for (args[1..]) |arg| {
+            const file = std.fs.cwd().openFile(arg, .{}) catch {
+                std.debug.print("hersha: {s}: No such file or directory\n", .{arg});
+                continue;
+            };
+            defer file.close();
+            try processBuffer(file, arg, Flags.std);
+        }
+    }
+}
+
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+    const args = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args);
+    try handleOptions(args);
 }
