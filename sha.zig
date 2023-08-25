@@ -30,13 +30,6 @@ const FlagsProcessor = struct {
     a: u8,
 };
 
-var bufferB: [5]u32 = [_]u32{
-    0x67452301,
-    0xEFCDAB89,
-    0x98BADCFE,
-    0x10325476,
-    0xC3D2E1F0,
-};
 
 fn circular(n: u5, w: u32) u32 {
     return (w << n) | (w >> ((31 - n) + 1));
@@ -153,25 +146,29 @@ fn paddingEndSpecial(length: usize) [16]u32 {
     return padded;
 }
 
-fn calculateHash(message: *[16]u32) [5]u32 {
+fn calculateHash(message: *[16]u32, bufferB: *[5]u32) void {
     var bufferA: [5]u32 = undefined;
     var temp: u32 = undefined;
     var seq: [80]u32 = undefined;
 
 
-    for (&seq, 0..) |*val, i| {
+    inline for (&seq, 0..) |*val, i| {
         if (i < 16) {
+            // var valuePointer: *[4]u8 = @ptrCast(val);
+            // for (0..4, 0..) |_, j| {
+            //     valuePointer[i] = message[j];
+            // }
             val.* = std.mem.nativeToBig(u32, message[i]);
         } else {
             val.* = circular(1, seq[i - 3] ^ seq[i - 8] ^ seq[i - 14] ^ seq[i - 16]);
         }
     }
 
-    for (&bufferA, 0..) |*val, i| {
+    inline for (&bufferA, 0..) |*val, i| {
         val.* = bufferB[i];
     }
 
-    for (0..80, 0..) |_, i| {
+    inline for (0..80, 0..) |_, i| {
         temp = circular(5, bufferA[0]) +% f(i, bufferA[1], bufferA[2], bufferA[3]) +% bufferA[4] +% seq[i] +% k(i);
         bufferA[4] = bufferA[3];
         bufferA[3] = bufferA[2];
@@ -186,7 +183,7 @@ fn calculateHash(message: *[16]u32) [5]u32 {
     bufferB[3] +%= bufferA[3];
     bufferB[4] +%= bufferA[4];
 
-    return bufferB;
+    //return bufferB;
 }
 
 fn printHash(hash: [5]u32, file: []const u8, flag: Flags) !void {
@@ -212,36 +209,71 @@ fn printPadded(block: [16]u32) void {
 }
 
 fn processBuffer(file: std.fs.File, name: []const u8, flag: Flags) !void {
-    var buffer: [64]u8 = undefined;
-    var index = try file.read(&buffer);
-    var strlen: usize = undefined;
-    while (index == 64) {
-        strlen += index;
-        var rest = padding(buffer[0..index]);
-        _ = calculateHash(&rest);
-        index = try file.read(&buffer);
-    }
-    switch (index) {
-        0 => {
-            var rest = paddingEndSpecial(strlen);
-            const result = calculateHash(&rest);
-            try printHash(result, name, flag);
-        },
-        1...55 => {
-            strlen += index;
-            var rest = paddingShort(buffer[0..index], strlen, index);
-            const result = calculateHash(&rest);
-            try printHash(result, name, flag);
-        },
-        56...63 => {
-            strlen += index;
-            var rest = paddingSpecial(buffer[0..index], index);
-            _ = calculateHash(&rest);
-            rest = paddingEnd(strlen);
-            const result = calculateHash(&rest);
-            try printHash(result, name, flag);
-        },
-        else => {}
+    const ssize: usize = 4096;
+    var buffer: [ssize]u8 = undefined;
+    var size = try file.read(&buffer);
+    var index: usize = 0;
+    var strlen: usize = 0;
+    var bufferB: [5]u32 = [_]u32{
+        0x67452301,
+        0xEFCDAB89,
+        0x98BADCFE,
+        0x10325476,
+        0xC3D2E1F0,
+    };
+
+    // std.debug.print("{}\n", .{size});
+    while (true) {
+        if (index + 64 <= size) {
+            // std.debug.print("In loop {} {}\n", .{index, index + 64});
+            // var rest = padding(buffer[index..(index + 64)]);
+            // TODO: optimize without calling padding (cast [64]u8 to [5]u32)
+            var input: [16]u32 = undefined;
+            var pointer: *[64]u8 = @ptrCast(&input);
+            inline for (0..64, 0..) |_, i| {
+                pointer[i] = buffer[index + i];
+            }
+            calculateHash(&input, &bufferB);
+            index += 64;
+            strlen += 64;
+            // std.debug.print("Strlen in loop {}\n", .{strlen});
+        } else {
+            if (size == ssize) {
+                // std.debug.print("turn\n", .{});
+                // strlen += size - index;
+                index = 0;
+                size = try file.read(&buffer);
+            } else {
+                index = size - index;
+                // std.debug.print("Index in break {}\n", .{index});
+                strlen += index;
+                // std.debug.print("Strlen {}\n", .{strlen});
+                // std.debug.print("Index in main {}\n", .{index});
+                switch (index) {
+                    0 => {
+                        var rest = paddingEndSpecial(strlen);
+                        calculateHash(&rest, &bufferB);
+                        try printHash(bufferB, name, flag);
+                    },
+                    1...55 => {
+                        // strlen += index;
+                        var rest = paddingShort(buffer[(size - index)..size], strlen, index);
+                        calculateHash(&rest, &bufferB);
+                        try printHash(bufferB, name, flag);
+                    },
+                    56...63 => {
+                        // strlen += index;
+                        var rest = paddingSpecial(buffer[(size - index)..size], index);
+                        _ = calculateHash(&rest, &bufferB);
+                        rest = paddingEnd(strlen);
+                        calculateHash(&rest, &bufferB);
+                        try printHash(bufferB, name, flag);
+                    },
+                    else => {}
+                }
+                break;
+            }
+        }
     }
 }
 
