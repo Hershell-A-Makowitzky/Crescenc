@@ -9,26 +9,6 @@ const K2: u32 = 0x6ED9EBA1;
 const K3: u32 = 0x8F1BBCDC;
 const K4: u32 = 0xCA62C1D6;
 
-const Flags = enum {
-    std,
-    binary,
-    check,
-    tag,
-    text,
-    zero,
-    ingnoreMissing,
-    quiet,
-    status,
-    strict,
-    warn,
-    help,
-    version
-};
-
-const FlagsProcessor = struct {
-    f: [12]Flags,
-    a: u8,
-};
 
 
 fn circular(n: u5, w: u32) u32 {
@@ -186,12 +166,154 @@ fn calculateHash(message: *[16]u32, bufferB: *[5]u32) void {
     //return bufferB;
 }
 
-fn printHash(hash: [5]u32, file: []const u8, flag: Flags) !void {
+const FlagsProcessor = struct {
+    pub const Flags = enum {
+        none,
+        std,
+        binary,
+        check,
+        tag,
+        text,
+        zero,
+        ignoreMissing,
+        quiet,
+        status,
+        strict,
+        warn,
+        help,
+        version
+    };
+    f: [13]FlagsProcessor.Flags = [_]FlagsProcessor.Flags{FlagsProcessor.Flags.none} ** 13,
+    pub fn processFlags(self: *FlagsProcessor, options: [][:0]u8) void {
+        for (options[1..]) |val| {
+            if (std.mem.eql(u8, "-", val)
+                    or std.mem.eql(u8, "--", val)) {
+                self.f[0] = FlagsProcessor.Flags.std;
+                continue;
+            }
+            if (std.mem.eql(u8, "-b", val)
+                    or std.mem.eql(u8, "--b", val)
+                    or std.mem.eql(u8, "--bi", val)
+                    or std.mem.eql(u8, "--bin", val)
+                    or std.mem.eql(u8, "--bina", val)
+                    or std.mem.eql(u8, "--binar", val)
+                    or std.mem.eql(u8, "--binary", val)) {
+                self.f[1] = FlagsProcessor.Flags.binary;
+                continue;
+            }
+            if (std.mem.eql(u8, "-c", val)
+                    or std.mem.eql(u8, "--c", val)
+                    or std.mem.eql(u8, "--ch", val)
+                    or std.mem.eql(u8, "--che", val)
+                    or std.mem.eql(u8, "--chec", val)
+                    or std.mem.eql(u8, "--check", val)) {
+                self.f[2] = FlagsProcessor.Flags.check;
+                continue;
+            }
+            if (std.mem.eql(u8, "--t", val)
+                    or std.mem.eql(u8, "--ta", val)
+                    or std.mem.eql(u8, "--tag", val)) {
+                self.f[3] = FlagsProcessor.Flags.tag;
+                continue;
+            }
+            if (std.mem.eql(u8, "-t", val)
+                    or std.mem.eql(u8, "--t", val)
+                    or std.mem.eql(u8, "--te", val)
+                    or std.mem.eql(u8, "--tex", val)
+                    or std.mem.eql(u8, "--text", val)) {
+                self.f[4] = FlagsProcessor.Flags.text;
+                continue;
+            }
+            if (std.mem.eql(u8, "-z", val)
+                    or std.mem.eql(u8, "--z", val)
+                    or std.mem.eql(u8, "--ze", val)
+                    or std.mem.eql(u8, "--zer", val)
+                    or std.mem.eql(u8, "--zero", val)) {
+                self.f[5] = FlagsProcessor.Flags.zero;
+                continue;
+            }
+            if (std.mem.eql(u8, "--i", val)
+                    or std.mem.eql(u8, "--ig", val)
+                    or std.mem.eql(u8, "--ign", val)
+                    or std.mem.eql(u8, "--igno", val)
+                    or std.mem.eql(u8, "--ignor", val)
+                    or std.mem.eql(u8, "--ignore", val)
+                    or std.mem.eql(u8, "--ignore-", val)
+                    or std.mem.eql(u8, "--ignore-m", val)
+                    or std.mem.eql(u8, "--ignore-mi", val)
+                    or std.mem.eql(u8, "--ignore-mis", val)
+                    or std.mem.eql(u8, "--ignore-miss", val)
+                    or std.mem.eql(u8, "--ignore-missi", val)
+                    or std.mem.eql(u8, "--ignore-missin", val)
+                    or std.mem.eql(u8, "--ignore-missing", val)) {
+                self.f[6] = FlagsProcessor.Flags.ignoreMissing;
+                continue;
+            }
+            if (std.mem.eql(u8, "--q", val)
+                    or std.mem.eql(u8, "--qu", val)
+                    or std.mem.eql(u8, "--qui", val)
+                    or std.mem.eql(u8, "--quie", val)
+                    or std.mem.eql(u8, "--quiet", val)) {
+                self.f[7] = FlagsProcessor.Flags.quiet;
+                continue;
+            }
+            if (std.mem.eql(u8, "--s", val)
+                    or std.mem.eql(u8, "--st", val)
+                    or std.mem.eql(u8, "--sta", val)
+                    or std.mem.eql(u8, "--stat", val)
+                    or std.mem.eql(u8, "--statu", val)
+                    or std.mem.eql(u8, "--status", val)) {
+                self.f[8] = FlagsProcessor.Flags.status;
+                continue;
+            }
+            if (std.mem.eql(u8, "--s", val)
+                    or std.mem.eql(u8, "--st", val)
+                    or std.mem.eql(u8, "--str", val)
+                    or std.mem.eql(u8, "--stri", val)
+                    or std.mem.eql(u8, "--stric", val)
+                    or std.mem.eql(u8, "--strict", val)) {
+                self.f[9] = FlagsProcessor.Flags.strict;
+                continue;
+            }
+            if (std.mem.eql(u8, "-w", val)
+                    or std.mem.eql(u8, "--w", val)
+                    or std.mem.eql(u8, "--wa", val)
+                    or std.mem.eql(u8, "--war", val)
+                    or std.mem.eql(u8, "--warn", val)) {
+                self.f[10] = FlagsProcessor.Flags.warn;
+                continue;
+            }
+            if (std.mem.eql(u8, "--h", val)
+                    or std.mem.eql(u8, "--he", val)
+                    or std.mem.eql(u8, "--hel", val)
+                    or std.mem.eql(u8, "--help", val)) {
+                self.f[11] = FlagsProcessor.Flags.help;
+                continue;
+            }
+            if (std.mem.eql(u8, "--v", val)
+                    or std.mem.eql(u8, "--ve", val)
+                    or std.mem.eql(u8, "--ver", val)
+                    or std.mem.eql(u8, "--vers", val)
+                    or std.mem.eql(u8, "--versi", val)
+                    or std.mem.eql(u8, "--versio", val)
+                    or std.mem.eql(u8, "--version", val)) {
+                self.f[12] = FlagsProcessor.Flags.version;
+                continue;
+            }
+            if (std.mem.startsWith(u8, val, "--") and val.len > 2) {
+                    std.debug.print("{s}: unrecognized option '{s}'\nTry '{s}--help' for more information.", .{options[0], val, options[0]});
+                    std.os.exit(1);
+            }
+        }
+    }
+};
+
+fn printHash(hash: [5]u32, file: []const u8, flag: FlagsProcessor.Flags) !void {
     const stdout = std.io.getStdOut().writer();
     for (hash) |val| {
         try stdout.print("{x:0>8}", .{val});
     }
-    if (flag == Flags.zero) {
+    if (flag == FlagsProcessor.Flags.zero) {
         try stdout.print("  {s}\x00", .{file});
         return;
     }
@@ -208,10 +330,10 @@ fn printPadded(block: [16]u32) void {
     std.debug.print("\n\n", .{});
 }
 
-fn processBuffer(file: std.fs.File, name: []const u8, flag: Flags) !void {
+fn processBuffer(file: std.fs.File, name: []const u8, flag: FlagsProcessor.Flags) !void {
     const ssize: usize = 4096;
     var buffer: [ssize]u8 = undefined;
-    var size = try file.read(&buffer);
+    var size = if (std.mem.eql(u8, "-", name)) try file.readAll(&buffer) else try file.read(&buffer);
     var index: usize = 0;
     var strlen: usize = 0;
     var bufferB: [5]u32 = [_]u32{
@@ -281,7 +403,7 @@ fn handleOptions(args: [][:0]u8) !void {
     if (args.len == 1 or std.mem.eql(u8, args[1], "-")) {
         const stdin = std.io.getStdIn();
         defer stdin.close();
-        try processBuffer(stdin, "-", Flags.std);
+        try processBuffer(stdin, "-", FlagsProcessor.Flags.std);
     }
     if (std.mem.eql(u8, args[1], "-z") or (std.mem.eql(u8, args[1], "--zero"))) {
         for (args[1..]) |arg| {
@@ -291,7 +413,7 @@ fn handleOptions(args: [][:0]u8) !void {
                     continue;
                 };
                 defer file.close();
-                try processBuffer(file, arg, Flags.zero);
+                try processBuffer(file, arg, FlagsProcessor.Flags.zero);
             }
         }
     }
@@ -302,7 +424,7 @@ fn handleOptions(args: [][:0]u8) !void {
                 continue;
             };
             defer file.close();
-            try processBuffer(file, arg, Flags.std);
+            try processBuffer(file, arg, FlagsProcessor.Flags.std);
         }
     }
 }
@@ -313,5 +435,10 @@ pub fn main() !void {
     const allocator = gpa.allocator();
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
-    try handleOptions(args);
+    // try handleOptions(args);
+    var options = FlagsProcessor{};
+    FlagsProcessor.processFlags(&options, args);
+    for (options.f) |val| {
+        std.debug.print("{any}\n", .{val});
+    }
 }
