@@ -184,12 +184,13 @@ const FlagsProcessor = struct {
         version
     };
     f: [13]FlagsProcessor.Flags = [_]FlagsProcessor.Flags{FlagsProcessor.Flags.none} ** 13,
-    pub fn processFlags(self: *FlagsProcessor, options: [][:0]u8) void {
+    pub fn processFlags(self: *FlagsProcessor, options: [][:0]u8) !void {
         for (options[1..]) |val| {
             if (std.mem.eql(u8, "-", val)
                     or std.mem.eql(u8, "--", val)) {
                 self.f[0] = FlagsProcessor.Flags.std;
-                continue;
+                try processBuffer(std.io.getStdIn(), "-", self.f[0]);
+                break;
             }
             if (std.mem.eql(u8, "-b", val)
                     or std.mem.eql(u8, "--b", val)
@@ -304,6 +305,16 @@ const FlagsProcessor = struct {
                     std.debug.print("{s}: unrecognized option '{s}'\nTry '{s}--help' for more information.", .{options[0], val, options[0]});
                     std.os.exit(1);
             }
+            if (std.mem.startsWith(u8, val, "-") and val.len > 1) {
+                    std.debug.print("{s}: unrecognized option '{s}'\nTry '{s}--help' for more information.", .{options[0], val, options[0]});
+                    std.os.exit(1);
+            }
+            const input = std.fs.cwd().openFile(val, .{}) catch {
+                std.debug.print("{s}: {s}: No such file or directory\n", .{options[0], val});
+                //std.debug.print("{}\n", .{err});
+                std.os.exit(1);
+            };
+            try processBuffer(input, val, self.f[0]);
         }
     }
 };
@@ -333,7 +344,7 @@ fn printPadded(block: [16]u32) void {
 fn processBuffer(file: std.fs.File, name: []const u8, flag: FlagsProcessor.Flags) !void {
     const ssize: usize = 4096;
     var buffer: [ssize]u8 = undefined;
-    var size = if (std.mem.eql(u8, "-", name)) try file.readAll(&buffer) else try file.read(&buffer);
+    var size = if (file.handle == std.os.STDIN_FILENO) try file.readAll(&buffer) else try file.read(&buffer);
     var index: usize = 0;
     var strlen: usize = 0;
     var bufferB: [5]u32 = [_]u32{
@@ -437,7 +448,7 @@ pub fn main() !void {
     defer std.process.argsFree(allocator, args);
     // try handleOptions(args);
     var options = FlagsProcessor{};
-    FlagsProcessor.processFlags(&options, args);
+    try FlagsProcessor.processFlags(&options, args);
     for (options.f) |val| {
         std.debug.print("{any}\n", .{val});
     }
