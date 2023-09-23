@@ -2,6 +2,8 @@
 
 **To build from source code you must have `zig` binary available on your system**
 
+Please for installation of zig take a look at `https://ziglang.org/download/` 
+
 ## Installation
 
 ```
