@@ -1,11 +1,11 @@
 const std = @import("std");
-const fp = @import("flagsProcessor.zig");
-const ch = @import("calculateHash.zig");
-const pes = @import("paddingEndSpecial.zig");
-const ph = @import("printHash.zig");
-const ps = @import("paddingShort.zig");
-const psl = @import("paddingSpecial.zig");
-const pe = @import("paddingEnd.zig");
+const fp = @import("flags_processor.zig");
+const ch = @import("calculate_hash.zig");
+const pes = @import("padding_end_special.zig");
+const ph = @import("print_hash.zig");
+const ps = @import("padding_short.zig");
+const psl = @import("padding_special.zig");
+const pe = @import("padding_end.zig");
 
 pub fn processBuffer(file: std.fs.File, name: []const u8, flag: fp.FlagsProcessor.Flags) !void {
     const ssize: usize = 4096;

@@ -1,5 +1,5 @@
 const std = @import("std");
-const fp = @import("flagsProcessor.zig");
+const fp = @import("flags_processor.zig");
 
 pub fn printHash(hash: [5]u32, file: []const u8, flag: fp.FlagsProcessor.Flags) !void {
     const stdout = std.io.getStdOut().writer();

@@ -1,7 +1,7 @@
 const std = @import("std");
 const cir = @import("circular.zig");
 const bit = @import("bitwise.zig");
-const cv = @import("constantValue.zig");
+const cv = @import("constant_value.zig");
 
 pub fn calculateHash(message: *[16]u32, bufferB: *[5]u32) void {
     var bufferA: [5]u32 = undefined;

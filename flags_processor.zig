@@ -1,5 +1,5 @@
 const std = @import("std");
-const pbuffer = @import("processBuffer.zig");
+const pbuffer = @import("process_buffer.zig");
 
 pub const FlagsProcessor = struct {
     pub const Flags = enum { none, std, binary, check, tag, text, zero, ignoreMissing, quiet, status, strict, warn, help, version };
