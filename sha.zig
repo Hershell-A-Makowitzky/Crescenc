@@ -183,14 +183,20 @@ const FlagsProcessor = struct {
         help,
         version
     };
-    f: [13]FlagsProcessor.Flags = [_]FlagsProcessor.Flags{FlagsProcessor.Flags.none} ** 13,
+    f: [11]FlagsProcessor.Flags = [_]FlagsProcessor.Flags{FlagsProcessor.Flags.none} ** 11,
     pub fn processFlags(self: *FlagsProcessor, options: [][:0]u8) !void {
+        if (options.len == 1) {
+            try processBuffer(std.io.getStdIn(), "-", self.f[0]);
+            return;
+        }
         for (options[1..]) |val| {
-            if (std.mem.eql(u8, "-", val)
-                    or std.mem.eql(u8, "--", val)) {
+            if ((std.mem.eql(u8, "-", options[1]) or std.mem.eql(u8, "--", options[1])) and options.len == 2) {
                 self.f[0] = FlagsProcessor.Flags.std;
                 try processBuffer(std.io.getStdIn(), "-", self.f[0]);
                 break;
+            }
+            if (std.mem.eql(u8, "-", val) or std.mem.eql(u8, "--", val)) {
+                continue;
             }
             if (std.mem.eql(u8, "-b", val)
                     or std.mem.eql(u8, "--b", val)
@@ -199,7 +205,12 @@ const FlagsProcessor = struct {
                     or std.mem.eql(u8, "--bina", val)
                     or std.mem.eql(u8, "--binar", val)
                     or std.mem.eql(u8, "--binary", val)) {
-                self.f[1] = FlagsProcessor.Flags.binary;
+                if (self.f[4] == FlagsProcessor.Flags.text) {
+                    self.f[1] = FlagsProcessor.Flags.binary;
+                    self.f[4] = FlagsProcessor.Flags.none;
+                } else {
+                    self.f[1] = FlagsProcessor.Flags.binary;
+                }
                 continue;
             }
             if (std.mem.eql(u8, "-c", val)
@@ -211,18 +222,25 @@ const FlagsProcessor = struct {
                 self.f[2] = FlagsProcessor.Flags.check;
                 continue;
             }
-            if (std.mem.eql(u8, "--t", val)
-                    or std.mem.eql(u8, "--ta", val)
+            if (std.mem.eql(u8, "--t", val)) {
+                std.debug.print("{s}: option '--t' is ambiguous; possibilities: '--tag' '--text'\nTry '{s} --help' for more information.\n", .{options[0], options[0]});
+                std.process.exit(1);
+            }
+            if (std.mem.eql(u8, "--ta", val)
                     or std.mem.eql(u8, "--tag", val)) {
                 self.f[3] = FlagsProcessor.Flags.tag;
                 continue;
             }
             if (std.mem.eql(u8, "-t", val)
-                    or std.mem.eql(u8, "--t", val)
                     or std.mem.eql(u8, "--te", val)
                     or std.mem.eql(u8, "--tex", val)
                     or std.mem.eql(u8, "--text", val)) {
-                self.f[4] = FlagsProcessor.Flags.text;
+                if (self.f[1] == FlagsProcessor.Flags.binary) {
+                    self.f[4] = FlagsProcessor.Flags.text;
+                    self.f[1] = FlagsProcessor.Flags.none;
+                } else {
+                    self.f[4] = FlagsProcessor.Flags.text;
+                }
                 continue;
             }
             if (std.mem.eql(u8, "-z", val)
@@ -288,8 +306,9 @@ const FlagsProcessor = struct {
                     or std.mem.eql(u8, "--he", val)
                     or std.mem.eql(u8, "--hel", val)
                     or std.mem.eql(u8, "--help", val)) {
-                self.f[11] = FlagsProcessor.Flags.help;
-                continue;
+                // TODO: print help
+                std.debug.print("HELP", .{});
+                std.process.exit(0);
             }
             if (std.mem.eql(u8, "--v", val)
                     or std.mem.eql(u8, "--ve", val)
@@ -298,25 +317,89 @@ const FlagsProcessor = struct {
                     or std.mem.eql(u8, "--versi", val)
                     or std.mem.eql(u8, "--versio", val)
                     or std.mem.eql(u8, "--version", val)) {
-                self.f[12] = FlagsProcessor.Flags.version;
-                continue;
+                // TODO: print version
+                std.debug.print("VERSION", .{});
+                std.process.exit(0);
             }
             if (std.mem.startsWith(u8, val, "--") and val.len > 2) {
-                    std.debug.print("{s}: unrecognized option '{s}'\nTry '{s}--help' for more information.", .{options[0], val, options[0]});
-                    std.os.exit(1);
+                // std.debug.print("{s}\n", .{val});
+                std.debug.print("{s}: invalid option -- '{s}'\nTry '{s} --help' for more information.\n", .{options[0], val[1..], options[0]});
+                std.os.exit(1);
             }
             if (std.mem.startsWith(u8, val, "-") and val.len > 1) {
-                    std.debug.print("{s}: unrecognized option '{s}'\nTry '{s}--help' for more information.", .{options[0], val, options[0]});
-                    std.os.exit(1);
-            }
-            const input = std.fs.cwd().openFile(val, .{}) catch {
-                std.debug.print("{s}: {s}: No such file or directory\n", .{options[0], val});
-                //std.debug.print("{}\n", .{err});
+                std.debug.print("{s}\n", .{val});
+                std.debug.print("{s}: invalid option -- '{c}'\nTry '{s} --help' for more information.\n", .{options[0], val[1], options[0]});
                 std.os.exit(1);
-            };
-            try processBuffer(input, val, self.f[0]);
+            }
+        }
+        self.checkForOptionsError(options[0]);
+        for (options[1..]) |val| {
+            if (!std.mem.startsWith(u8, val, "-")) {
+                const input = std.fs.cwd().openFile(val, .{}) catch {
+                    std.debug.print("{s}: {s}: No such file or directory\n", .{options[0], val});
+                    continue;
+                };
+                try processBuffer(input, val, self.f[0]);
+            }
         }
     }
+    pub fn checkForOptionsError(self: *FlagsProcessor, name: [:0]u8) void {
+        for (self.f) |val| {
+            std.debug.print("{any}\n", .{val});
+        }
+        if (self.f[1] == FlagsProcessor.Flags.binary and self.f[2] == FlagsProcessor.Flags.check) {
+            std.debug.print("The --binary and --text options are meaningless when verifying checksums\n", .{});
+            std.debug.print("Try '{s} --help' for more information.\n", .{name});
+        }
+        if (self.f[4] == FlagsProcessor.Flags.text and self.f[2] == FlagsProcessor.Flags.check) {
+            std.debug.print("The --binary and --text options are meaningless when verifying checksums\n", .{});
+            std.debug.print("Try '{s} --help' for more information.\n", .{name});
+        }
+        if (self.f[5] == FlagsProcessor.Flags.zero and self.f[2] == FlagsProcessor.Flags.check) {
+            std.debug.print("The --zero options is not supported when verifying checksums\n", .{});
+            std.debug.print("Try '{s} --help' for more information.\n", .{name});
+        }
+        if (self.f[3] == FlagsProcessor.Flags.tag and self.f[2] == FlagsProcessor.Flags.check) {
+            std.debug.print("The --tag option is meaningless when verifying checksums\n", .{});
+            std.debug.print("Try '{s} --help' for more information.\n", .{name});
+        }
+        if (self.f[3] == FlagsProcessor.Flags.tag and self.f[2] == FlagsProcessor.Flags.check) {
+            self.f[1] = FlagsProcessor.Flags.none;
+            self.f[4] = FlagsProcessor.Flags.none;
+        }
+        if (self.f[6] == FlagsProcessor.Flags.ignoreMissing and self.f[2] == FlagsProcessor.Flags.none) {
+            std.debug.print("The --ignore-missing option is meaningful only when verifying checksums\n", .{});
+            std.debug.print("Try '{s} --help' for more information.\n", .{name});
+        }
+        if (self.f[7] == FlagsProcessor.Flags.ignoreMissing and self.f[2] == FlagsProcessor.Flags.none) {
+            std.debug.print("The --quiet option is meaningful only when verifying checksums\n", .{});
+            std.debug.print("Try '{s} --help' for more information.\n", .{name});
+        }
+        if (self.f[8] == FlagsProcessor.Flags.ignoreMissing and self.f[2] == FlagsProcessor.Flags.none) {
+            std.debug.print("The --status option is meaningful only when verifying checksums\n", .{});
+            std.debug.print("Try '{s} --help' for more information.\n", .{name});
+        }
+        if (self.f[9] == FlagsProcessor.Flags.ignoreMissing and self.f[2] == FlagsProcessor.Flags.none) {
+            std.debug.print("The --strict option is meaningful only when verifying checksums\n", .{});
+            std.debug.print("Try '{s} --help' for more information.\n", .{name});
+        }
+        if (self.f[10] == FlagsProcessor.Flags.ignoreMissing and self.f[2] == FlagsProcessor.Flags.none) {
+            std.debug.print("The --warn option is meaningful only when verifying checksums\n", .{});
+            std.debug.print("Try '{s} --help' for more information.\n", .{name});
+        }
+    }
+        // binary 1
+        // check 2
+        // tag 3
+        // text 4
+        // zero  5
+        // ignoreMissing 6
+        // quiet 7
+        // status 8
+        // strict 9
+        // warn 10
+        // help 11
+        // version 12
 };
 
 fn printHash(hash: [5]u32, file: []const u8, flag: FlagsProcessor.Flags) !void {
@@ -410,36 +493,6 @@ fn processBuffer(file: std.fs.File, name: []const u8, flag: FlagsProcessor.Flags
     }
 }
 
-fn handleOptions(args: [][:0]u8) !void {
-    if (args.len == 1 or std.mem.eql(u8, args[1], "-")) {
-        const stdin = std.io.getStdIn();
-        defer stdin.close();
-        try processBuffer(stdin, "-", FlagsProcessor.Flags.std);
-    }
-    if (std.mem.eql(u8, args[1], "-z") or (std.mem.eql(u8, args[1], "--zero"))) {
-        for (args[1..]) |arg| {
-            if (!std.mem.startsWith(u8, arg, "-")) {
-                const file = std.fs.cwd().openFile(arg, .{}) catch {
-                    std.debug.print("hersha: {s}: No such file or directory\n", .{arg});
-                    continue;
-                };
-                defer file.close();
-                try processBuffer(file, arg, FlagsProcessor.Flags.zero);
-            }
-        }
-    }
-    if (!std.mem.startsWith(u8, args[1], "-")) {
-        for (args[1..]) |arg| {
-            const file = std.fs.cwd().openFile(arg, .{}) catch {
-                std.debug.print("hersha: {s}: No such file or directory\n", .{arg});
-                continue;
-            };
-            defer file.close();
-            try processBuffer(file, arg, FlagsProcessor.Flags.std);
-        }
-    }
-}
-
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -449,7 +502,7 @@ pub fn main() !void {
     // try handleOptions(args);
     var options = FlagsProcessor{};
     try FlagsProcessor.processFlags(&options, args);
-    for (options.f) |val| {
-        std.debug.print("{any}\n", .{val});
-    }
+    // for (options.f) |val| {
+    //     std.debug.print("{any}\n", .{val});
+    // }
 }
