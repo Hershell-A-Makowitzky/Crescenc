@@ -68,7 +68,7 @@ pub fn processBuffer(file: std.fs.File, name: []const u8, flag: fp.FlagsProcesso
                         ch.calculateHash(&rest, &bufferB);
                         try ph.printHash(bufferB, name, flag);
                     },
-                    else => {}
+                    else => {},
                 }
                 break;
             }

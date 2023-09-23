@@ -8,7 +8,6 @@ pub fn calculateHash(message: *[16]u32, bufferB: *[5]u32) void {
     var temp: u32 = undefined;
     var seq: [80]u32 = undefined;
 
-
     inline for (&seq, 0..) |*val, i| {
         if (i < 16) {
             // var valuePointer: *[4]u8 = @ptrCast(val);
