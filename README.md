@@ -6,11 +6,7 @@
 
 ```
 git clone https://github.com/Hershell-A-Makowitzky/Crescenc.git/tree/zig-version
-```
-```
 cd Crescenc
-```
-```
 zig build
 ```
 
