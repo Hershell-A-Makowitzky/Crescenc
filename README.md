@@ -1,6 +1,6 @@
 # Zig version of `sha1sum` coreutil
 
-**To build from source code you must have `zig` binary available**
+**To build from source code you must have `zig` binary available on your system**
 
 ## Installation
 
@@ -13,7 +13,12 @@ zig build
 ## Run
 
 ```
-pushd zig-out/bin/hersha && echo "Hello World" | hersha - && popd
+pushd zig-out/bin && echo "Hello World" | ./hersha - && popd
+```
+Expected output:
+
+```
+0a4d55a8d778e5022fab701977c5d840bbc486d0  -
 ```
 
 For further usage check `https://www.man7.org/linux/man-pages/man1/sha1sum.1.html` 
