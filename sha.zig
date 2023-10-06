@@ -2,8 +2,8 @@
 // Only for personal purposes
 
 const std = @import("std");
-const fp = @import("flags_processor.zig").FlagsProcessor;
-const pb = @import("process_buffer.zig");
+const fp  = @import("flags_processor.zig").FlagsProcessor;
+const pb  = @import("process_buffer.zig");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};

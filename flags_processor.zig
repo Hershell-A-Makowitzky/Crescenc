@@ -1,21 +1,26 @@
-const std = @import("std");
+const std     = @import("std");
 const pbuffer = @import("process_buffer.zig");
+const ch = @import("check.zig");
 
 pub const FlagsProcessor = struct {
     pub const Flags = enum { none, std, binary, check, tag, text, zero, ignoreMissing, quiet, status, strict, warn, help, version };
     f: [11]FlagsProcessor.Flags = [_]FlagsProcessor.Flags{FlagsProcessor.Flags.none} ** 11,
     pub fn processFlags(self: *FlagsProcessor, options: [][:0]u8) !void {
         if (options.len == 1) {
-            try pbuffer.processBuffer(std.io.getStdIn(), "-", self.f[0]);
+            _ = try pbuffer.processBuffer(std.io.getStdIn(), "-", self);
             return;
         }
         for (options[1..]) |val| {
             if ((std.mem.eql(u8, "-", options[1]) or std.mem.eql(u8, "--", options[1])) and options.len == 2) {
                 self.f[0] = FlagsProcessor.Flags.std;
-                try pbuffer.processBuffer(std.io.getStdIn(), "-", self.f[0]);
+                _ = try pbuffer.processBuffer(std.io.getStdIn(), "-", self);
                 break;
             }
-            if (std.mem.eql(u8, "-", val) or std.mem.eql(u8, "--", val)) {
+            if (std.mem.eql(u8, "-", val)) {
+                self.f[1] = FlagsProcessor.Flags.std;
+                continue;
+            }
+            if (std.mem.eql(u8, "--", val)) {
                 continue;
             }
             if (std.mem.eql(u8, "-b", val) or std.mem.eql(u8, "--b", val) or std.mem.eql(u8, "--bi", val) or std.mem.eql(u8, "--bin", val) or std.mem.eql(u8, "--bina", val) or std.mem.eql(u8, "--binar", val) or std.mem.eql(u8, "--binary", val)) {
@@ -88,38 +93,70 @@ pub const FlagsProcessor = struct {
                 std.os.exit(1);
             }
             if (std.mem.startsWith(u8, val, "-") and val.len > 1) {
-                std.debug.print("{s}\n", .{val});
+                for (val[1..]) |item| {
+                    std.debug.print("{c}\n", .{item});
+                    switch (item) {
+                        'b' => self.f[1] = FlagsProcessor.Flags.binary,
+                        'c' => self.f[2] = FlagsProcessor.Flags.check,
+                        't' => self.f[4] = FlagsProcessor.Flags.text,
+                        'z' => self.f[5] = FlagsProcessor.Flags.zero,
+                        'w' => self.f[10] = FlagsProcessor.Flags.warn,
+                        else => {
+                            std.debug.print("{s}: invalid option -- '{c}'\nTry '{s} --help' for more information.\n", .{ options[0], item, options[0] });
+                            std.os.exit(1);
+                        }
+                    }
+                }
+                continue;
+            }
+            if (std.mem.startsWith(u8, val, "-") and val.len > 1) {
                 std.debug.print("{s}: invalid option -- '{c}'\nTry '{s} --help' for more information.\n", .{ options[0], val[1], options[0] });
                 std.os.exit(1);
             }
         }
         self.checkForOptionsError(options[0]);
+        try self.executeCheck(options[0..]);
         for (options[1..]) |val| {
             if (!std.mem.startsWith(u8, val, "-")) {
                 const input = std.fs.cwd().openFile(val, .{}) catch {
                     std.debug.print("{s}: {s}: No such file or directory\n", .{ options[0], val });
                     continue;
                 };
-                try pbuffer.processBuffer(input, val, self.f[0]);
+                defer input.close();
+                _ = try pbuffer.processBuffer(input, val, self);
             }
+        }
+    }
+    pub fn checkAfterDoubleDash(self: *FlagsProcessor, name: [:0]u8, input: [][:0]u8) !void {
+        for (input) |value| {
+            const file = std.fs.cwd().openFile(value, .{}) catch {
+                std.debug.print("checjAfterDoubleDash {s}: {s}: No such file or directory\n", .{ name, value });
+                continue;
+            };
+            defer file.close();
+            _ = try pbuffer.processBuffer(file, value, self);
         }
     }
     pub fn checkForOptionsError(self: *FlagsProcessor, name: [:0]u8) void {
         if (self.f[1] == FlagsProcessor.Flags.binary and self.f[2] == FlagsProcessor.Flags.check) {
             std.debug.print("The --binary and --text options are meaningless when verifying checksums\n", .{});
             std.debug.print("Try '{s} --help' for more information.\n", .{name});
+            std.process.exit(1);
         }
         if (self.f[4] == FlagsProcessor.Flags.text and self.f[2] == FlagsProcessor.Flags.check) {
             std.debug.print("The --binary and --text options are meaningless when verifying checksums\n", .{});
             std.debug.print("Try '{s} --help' for more information.\n", .{name});
+            std.process.exit(1);
         }
         if (self.f[5] == FlagsProcessor.Flags.zero and self.f[2] == FlagsProcessor.Flags.check) {
             std.debug.print("The --zero options is not supported when verifying checksums\n", .{});
             std.debug.print("Try '{s} --help' for more information.\n", .{name});
+            std.process.exit(1);
         }
         if (self.f[3] == FlagsProcessor.Flags.tag and self.f[2] == FlagsProcessor.Flags.check) {
             std.debug.print("The --tag option is meaningless when verifying checksums\n", .{});
             std.debug.print("Try '{s} --help' for more information.\n", .{name});
+            std.process.exit(1);
         }
         if (self.f[3] == FlagsProcessor.Flags.tag and self.f[2] == FlagsProcessor.Flags.check) {
             self.f[1] = FlagsProcessor.Flags.none;
@@ -128,22 +165,60 @@ pub const FlagsProcessor = struct {
         if (self.f[6] == FlagsProcessor.Flags.ignoreMissing and self.f[2] == FlagsProcessor.Flags.none) {
             std.debug.print("The --ignore-missing option is meaningful only when verifying checksums\n", .{});
             std.debug.print("Try '{s} --help' for more information.\n", .{name});
+            std.process.exit(1);
         }
-        if (self.f[7] == FlagsProcessor.Flags.ignoreMissing and self.f[2] == FlagsProcessor.Flags.none) {
+        if (self.f[7] == FlagsProcessor.Flags.quiet and self.f[2] == FlagsProcessor.Flags.none) {
             std.debug.print("The --quiet option is meaningful only when verifying checksums\n", .{});
             std.debug.print("Try '{s} --help' for more information.\n", .{name});
+            std.process.exit(1);
         }
-        if (self.f[8] == FlagsProcessor.Flags.ignoreMissing and self.f[2] == FlagsProcessor.Flags.none) {
+        if (self.f[8] == FlagsProcessor.Flags.status and self.f[2] == FlagsProcessor.Flags.none) {
             std.debug.print("The --status option is meaningful only when verifying checksums\n", .{});
             std.debug.print("Try '{s} --help' for more information.\n", .{name});
+            std.process.exit(1);
         }
-        if (self.f[9] == FlagsProcessor.Flags.ignoreMissing and self.f[2] == FlagsProcessor.Flags.none) {
+        if (self.f[9] == FlagsProcessor.Flags.strict and self.f[2] == FlagsProcessor.Flags.none) {
             std.debug.print("The --strict option is meaningful only when verifying checksums\n", .{});
             std.debug.print("Try '{s} --help' for more information.\n", .{name});
+            std.process.exit(1);
         }
-        if (self.f[10] == FlagsProcessor.Flags.ignoreMissing and self.f[2] == FlagsProcessor.Flags.none) {
+        if (self.f[10] == FlagsProcessor.Flags.warn and self.f[2] == FlagsProcessor.Flags.none) {
             std.debug.print("The --warn option is meaningful only when verifying checksums\n", .{});
             std.debug.print("Try '{s} --help' for more information.\n", .{name});
+            std.process.exit(1);
+        }
+    }
+    pub fn executeCheck(self: *FlagsProcessor, options: [][:0]u8) !void {
+        // for (options) |option| {
+        //     std.debug.print("{s}\n", .{option});
+        // }
+
+        // for (self.f) |flag| {
+        //     std.debug.print("{any}\n", .{flag});
+        // }
+
+        if (self.f[2] == FlagsProcessor.Flags.check and self.f[1] == FlagsProcessor.Flags.std) {
+            std.debug.print("Checking empty", .{});
+        }
+        if (self.f[2] == FlagsProcessor.Flags.check) { //or self.f[9] == FlagsProcessor.Flags.strict or self.f[6] == FlagsProcessor.Flags.ignoreMissing or self.f[7] == FlagsProcessor.Flags.quiet or self.f[8] == FlagsProcessor.Flags.status or self.f[10] == FlagsProcessor.Flags.warn)) {
+            for (options[1..]) |option| {
+                if (std.mem.eql(u8, option, "--")) {
+                    continue;
+                }
+                const input = std.fs.cwd().openFile(option, .{}) catch {
+                    std.debug.print("ExecuteCheck {s}: {s}: No such file or directory\n", .{ options[0], option });
+                    continue;
+                };
+                defer input.close();
+                std.debug.print("FILE {?}\n", .{input});
+                ch.check(options[0], option, input, self);
+            }
+            // const input = std.fs.cwd().openFile(option, .{}) catch {
+            //     std.debug.print("{s}: {s}: No such file or directory\n", .{ options[0], option });
+            //     continue;
+            // };
+            // try pbuffer.processBuffer(input, option, self);
+            // std.debug.print("Reading stdin...", .{});
         }
     }
     // binary 1

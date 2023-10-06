@@ -1,13 +1,13 @@
 const std = @import("std");
-const fp = @import("flags_processor.zig");
-const ch = @import("calculate_hash.zig");
+const fp  = @import("flags_processor.zig");
+const ch  = @import("calculate_hash.zig");
 const pes = @import("padding_end_special.zig");
-const ph = @import("print_hash.zig");
-const ps = @import("padding_short.zig");
+const ph  = @import("print_hash.zig");
+const ps  = @import("padding_short.zig");
 const psl = @import("padding_special.zig");
-const pe = @import("padding_end.zig");
+const pe  = @import("padding_end.zig");
 
-pub fn processBuffer(file: std.fs.File, name: []const u8, flag: fp.FlagsProcessor.Flags) !void {
+pub fn processBuffer(file: std.fs.File, name: []const u8, flags: *fp.FlagsProcessor) ![5]u32 {
     const ssize: usize = 4096;
     var buffer: [ssize]u8 = undefined;
     var size = if (file.handle == std.os.STDIN_FILENO) try file.readAll(&buffer) else try file.read(&buffer);
@@ -20,7 +20,8 @@ pub fn processBuffer(file: std.fs.File, name: []const u8, flag: fp.FlagsProcesso
         0x10325476,
         0xC3D2E1F0,
     };
-
+    _ = name;
+    _ = flags;
     // std.debug.print("{}\n", .{size});
     while (true) {
         if (index + 64 <= size) {
@@ -52,13 +53,13 @@ pub fn processBuffer(file: std.fs.File, name: []const u8, flag: fp.FlagsProcesso
                     0 => {
                         var rest = pes.paddingEndSpecial(strlen);
                         ch.calculateHash(&rest, &bufferB);
-                        try ph.printHash(bufferB, name, flag);
+                        // try ph.printHash(bufferB, name, flags);
                     },
                     1...55 => {
                         // strlen += index;
                         var rest = ps.paddingShort(buffer[(size - index)..size], strlen, index);
                         ch.calculateHash(&rest, &bufferB);
-                        try ph.printHash(bufferB, name, flag);
+                        // try ph.printHash(bufferB, name, flags);
                     },
                     56...63 => {
                         // strlen += index;
@@ -66,7 +67,7 @@ pub fn processBuffer(file: std.fs.File, name: []const u8, flag: fp.FlagsProcesso
                         _ = ch.calculateHash(&rest, &bufferB);
                         rest = pe.paddingEnd(strlen);
                         ch.calculateHash(&rest, &bufferB);
-                        try ph.printHash(bufferB, name, flag);
+                        // try ph.printHash(bufferB, name, flags);
                     },
                     else => {},
                 }
@@ -74,4 +75,5 @@ pub fn processBuffer(file: std.fs.File, name: []const u8, flag: fp.FlagsProcesso
             }
         }
     }
+    return bufferB;
 }
