@@ -129,8 +129,13 @@ pub const FlagsProcessor = struct {
     }
     pub fn checkAfterDoubleDash(self: *FlagsProcessor, name: [:0]u8, input: [][:0]u8) !void {
         for (input) |value| {
+            if (std.mem.eql(u8, value, "-")) {
+                std.debug.print("in --\n", .{});
+                _ = try pbuffer.processBuffer(std.io.getStdIn(), "-", self);
+                continue;
+            }
             const file = std.fs.cwd().openFile(value, .{}) catch {
-                std.debug.print("checjAfterDoubleDash {s}: {s}: No such file or directory\n", .{ name, value });
+                std.debug.print("checkAfterDoubleDash {s}: {s}: No such file or directory\n", .{ name, value });
                 continue;
             };
             defer file.close();
@@ -189,6 +194,25 @@ pub const FlagsProcessor = struct {
         }
     }
     pub fn executeCheck(self: *FlagsProcessor, options: [][:0]u8) !void {
+        for (options[1..]) |value| {
+            if (std.mem.eql(u8, value, "--")) {
+                continue;
+            }
+            if (std.mem.eql(u8, value, "-")) {
+                std.debug.print("in --\n", .{});
+                _ = try pbuffer.processBuffer(std.io.getStdIn(), "-", self);
+                continue;
+            }
+            const file = std.fs.cwd().openFile(value, .{}) catch {
+                std.debug.print("checkAfterDoubleDash {s}: {s}: No such file or directory\n", .{ name, value });
+                continue;
+            };
+            defer file.close();
+            _ = try pbuffer.processBuffer(file, value, self);
+        }
+
+    }
+    pub fn executeCheck(self: *FlagsProcessor, options: [][:0]u8) !void {
         // for (options) |option| {
         //     std.debug.print("{s}\n", .{option});
         // }
@@ -196,14 +220,16 @@ pub const FlagsProcessor = struct {
         // for (self.f) |flag| {
         //     std.debug.print("{any}\n", .{flag});
         // }
-
+        // std.debug.print("{any}\n", .{self.f[2] == FlagsProcessor.Flags.check and self.f[1] == FlagsProcessor.Flags.std});
         if (self.f[2] == FlagsProcessor.Flags.check and self.f[1] == FlagsProcessor.Flags.std) {
-            std.debug.print("Checking empty", .{});
+            std.debug.print("Checking empty\n", .{});
+            ch.check(options[0], @constCast("standard input"[0..]), std.io.getStdIn(), self);
         }
         if (self.f[2] == FlagsProcessor.Flags.check) { //or self.f[9] == FlagsProcessor.Flags.strict or self.f[6] == FlagsProcessor.Flags.ignoreMissing or self.f[7] == FlagsProcessor.Flags.quiet or self.f[8] == FlagsProcessor.Flags.status or self.f[10] == FlagsProcessor.Flags.warn)) {
             for (options[1..]) |option| {
                 if (std.mem.eql(u8, option, "--")) {
-                    continue;
+                    try checkAfterDoubleDash(self, options[0], options);
+                    return;
                 }
                 const input = std.fs.cwd().openFile(option, .{}) catch {
                     std.debug.print("ExecuteCheck {s}: {s}: No such file or directory\n", .{ options[0], option });
