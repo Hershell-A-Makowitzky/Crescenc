@@ -269,7 +269,9 @@ pub const FlagsProcessor = struct {
                 // };
                 // defer input.close();
                 // std.debug.print("FILE {?}\n", .{input});
-                try ch.check(program, option, self);
+                _ = ch.check(program, option, self) catch {
+                    continue;
+                };
             }
             // const input = std.fs.cwd().openFile(option, .{}) catch {
             //     std.debug.print("{s}: {s}: No such file or directory\n", .{ program, option });
