@@ -9,10 +9,12 @@ pub fn check(program: [:0]u8, filename: [:0]u8, flags: *fp.FlagsProcessor) !void
     var shabuffer: [42]u8 = undefined;
     var filebuffer: [255]u8 = undefined;
     var line: usize = 0;
+    var attemptsMade: usize = 0;
     var formattedFiles: usize = 0;
+    var improperlyFormattedFiles: usize = 0;
     var fileWarnings: usize = 0;
     var shaWarnings: usize = 0;
-    var seek: u64 = 0;
+    // var seek: u64 = 0;
     const input = std.fs.cwd().openFile(filename, .{}) catch |err| {
         if (exit == 0) {
             exit = 1;
@@ -21,6 +23,14 @@ pub fn check(program: [:0]u8, filename: [:0]u8, flags: *fp.FlagsProcessor) !void
         return err;
     };
     defer {
+        // std.debug.print("ShaWarnings {d} - FileWarnings {d} - Formated {d}\n", .{shaWarnings, fileWarnings, formattedFiles});
+        if (improperlyFormattedFiles > 0 and flags.f[8] != fp.FlagsProcessor.Flags.status and attemptsMade > 0) {
+            if (improperlyFormattedFiles == 1) {
+                std.debug.print("{s}: WARNING: {d} line are improperly formatted\n", .{ program, improperlyFormattedFiles });
+            } else {
+                std.debug.print("{s}: WARNING: {d} lines are improperly formatted\n", .{ program, improperlyFormattedFiles });
+            }
+        }
         if (fileWarnings > 0 and flags.f[8] != fp.FlagsProcessor.Flags.status) {
             if (fileWarnings == 1) {
                 std.debug.print("{s}: WARNING: {d} listed file could not be read\n", .{ program, fileWarnings });
@@ -28,26 +38,37 @@ pub fn check(program: [:0]u8, filename: [:0]u8, flags: *fp.FlagsProcessor) !void
                 std.debug.print("{s}: WARNING: {d} listed files could not be read\n", .{ program, fileWarnings });
             }
         }
-        if (shaWarnings > 0) {
+        if (shaWarnings > 0 and flags.f[8] != fp.FlagsProcessor.Flags.status) {
             std.debug.print("{s}: WARNING: {d} computed checksum did NOT match\n", .{ program, shaWarnings });
         }
-        if (formattedFiles == 0) {
+        if (formattedFiles == 0 and flags.f[8] != fp.FlagsProcessor.Flags.status) {
             std.debug.print("{s}: {s}: no properly formatted checksum lines found\n", .{ program, filename });
         }
     }
     defer input.close();
     while (true) {
         line += 1;
-        const len = try input.readAll(&shabuffer);
+        // const len = try input.readAll(&shabuffer);
+        _ = try input.readAll(&shabuffer);
+        // const token = std.mem.tokenizeScalar(u8, &shabuffer, '\n');
+        // std.debug.print("TOKEN @{s}@\n", .{token.buffer});
+        // std.debug.print("SHABUFFER @{s}@\n", .{shabuffer});
         const pos = try input.getPos();
+        // std.debug.print("POS {} END {}\n", .{ pos, try input.getEndPos() });
         if (pos == try input.getEndPos()) {
             break;
         }
-        seek += len;
-        _ = try input.seekTo(seek);
+        // seek += len;
+        // _ = try input.seekTo(seek);
         var bufferRead = std.mem.tokenizeScalar(u8, &shabuffer, ' ');
         if (bufferRead.peek()) |value| {
+            // TODO: fix bug caused if there is no new line in the token
+            // TODO: tokenize whole file
+            // std.debug.print("~{s}~\n", .{value});
             if (value.len != 40 or !(std.mem.eql(u8, " *", shabuffer[40..]) or std.mem.eql(u8, "  ", shabuffer[40..]))) {
+                // std.debug.print("SKIPPING\n", .{});
+                improperlyFormattedFiles += 1;
+                _ = try input.reader().skipUntilDelimiterOrEof('\n');
                 if (exit == 0) {
                     exit = 1;
                 }
@@ -59,11 +80,17 @@ pub fn check(program: [:0]u8, filename: [:0]u8, flags: *fp.FlagsProcessor) !void
         }
         formattedFiles += 1;
         const sha = shabuffer[0..40];
+        // std.debug.print("SHA is *{s}*\n", .{sha});
+        // std.debug.print("DEBUG: Filebuffer BEFORE is *{s}*\n", .{filebuffer});
+        // std.debug.print("DEBUG: Position of cursor is *{d}*\n", .{try input.getPos()});
         _ = try input.readAll(&filebuffer);
+        // std.debug.print("DEBUG: Filebuffer AFTER is *{s}*\n", .{filebuffer});
         var fileRead = std.mem.tokenizeScalar(u8, &filebuffer, '\n');
+        // std.debug.print("File buffer{s}\n", .{ filebuffer });
         if (fileRead.peek()) |fileToSha| {
-            seek += fileToSha.len + 1;
-            _ = try input.seekTo(seek);
+            // std.debug.print("FileToSha '{s}'\n", .{fileToSha});
+            // seek += fileToSha.len + 1;
+            // _ = try input.seekTo(seek);
             const openFileToSha = std.fs.cwd().openFile(fileToSha, .{}) catch {
                 if (exit == 0) {
                     exit = 1;
@@ -75,6 +102,7 @@ pub fn check(program: [:0]u8, filename: [:0]u8, flags: *fp.FlagsProcessor) !void
                 fileWarnings += 1;
                 continue;
             };
+            // std.debug.print("Are we here?\n", .{});
             defer openFileToSha.close();
             var result = try pbuffer.processBuffer(openFileToSha, fileToSha, flags);
             for (&result) |*val| {
@@ -87,7 +115,9 @@ pub fn check(program: [:0]u8, filename: [:0]u8, flags: *fp.FlagsProcessor) !void
 
             if (std.mem.eql(u8, h1, h2.data) and flags.f[8] != fp.FlagsProcessor.Flags.status) {
                 std.debug.print("{s}: OK\n", .{ fileToSha });
+                attemptsMade += 1;
             } else if (flags.f[8] != fp.FlagsProcessor.Flags.status) {
+                attemptsMade += 1;
                 shaWarnings += 1;
                 std.debug.print("{s}: FAILED\n", .{ fileToSha });
             }
