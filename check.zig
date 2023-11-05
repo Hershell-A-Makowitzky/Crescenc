@@ -5,7 +5,9 @@ const ph = @import("print_hash.zig");
 
 pub var exit: u8 = 0;
 
-pub fn check(program: [:0]u8, filename: [:0]u8, flags: *fp.FlagsProcessor) !void {
+pub fn check(programm: [:0]u8, filename: [:0]u8, flags: *fp.FlagsProcessor) !void {
+    _ = programm;
+    const program = "sha1sum";
     var shabuffer: [42]u8 = undefined;
     var filebuffer: [255]u8 = undefined;
     var line: usize = 0;
@@ -48,16 +50,20 @@ pub fn check(program: [:0]u8, filename: [:0]u8, flags: *fp.FlagsProcessor) !void
     defer input.close();
     while (true) {
         line += 1;
-        // const len = try input.readAll(&shabuffer);
-        _ = try input.readAll(&shabuffer);
+        var len = try input.readAll(&shabuffer);
+        // std.debug.print("AM I HOME?\n", .{});
+        if (len == 0) {
+            break;
+        }
+        // _ = try input.readAll(&shabuffer);
         // const token = std.mem.tokenizeScalar(u8, &shabuffer, '\n');
         // std.debug.print("TOKEN @{s}@\n", .{token.buffer});
         // std.debug.print("SHABUFFER @{s}@\n", .{shabuffer});
-        const pos = try input.getPos();
+        // const pos = try input.getPos();
         // std.debug.print("POS {} END {}\n", .{ pos, try input.getEndPos() });
-        if (pos == try input.getEndPos()) {
-            break;
-        }
+        // if (pos == try input.getEndPos()) {
+        //     break;
+        // }
         // seek += len;
         // _ = try input.seekTo(seek);
         var bufferRead = std.mem.tokenizeScalar(u8, &shabuffer, ' ');
@@ -83,13 +89,22 @@ pub fn check(program: [:0]u8, filename: [:0]u8, flags: *fp.FlagsProcessor) !void
         // std.debug.print("SHA is *{s}*\n", .{sha});
         // std.debug.print("DEBUG: Filebuffer BEFORE is *{s}*\n", .{filebuffer});
         // std.debug.print("DEBUG: Position of cursor is *{d}*\n", .{try input.getPos()});
-        _ = try input.readAll(&filebuffer);
+        len = try input.readAll(&filebuffer);
+        // std.debug.print("LEN ***{d}***\n", .{len});
+        // std.debug.print("POS1 ***{d}***\n", .{try input.getPos()});
+        if (len == 0) {
+            break;
+        }
         // std.debug.print("DEBUG: Filebuffer AFTER is *{s}*\n", .{filebuffer});
+        // std.debug.print("POS {} END {}\n", .{ pos, try input.getEndPos() });
         var fileRead = std.mem.tokenizeScalar(u8, &filebuffer, '\n');
         // std.debug.print("File buffer{s}\n", .{ filebuffer });
         if (fileRead.peek()) |fileToSha| {
             // std.debug.print("FileToSha '{s}'\n", .{fileToSha});
-            // seek += fileToSha.len + 1;
+            // seek += fileToSha.len;
+            // std.debug.print("POS1 ***{d}***\n", .{try input.getPos()});
+            try input.seekBy(-(@as(i64, @intCast(len)) - @as(i64, @intCast(fileToSha.len))-1));
+            // std.debug.print("POS2 ***{d}***\n", .{try input.getPos()});
             // _ = try input.seekTo(seek);
             const openFileToSha = std.fs.cwd().openFile(fileToSha, .{}) catch {
                 if (exit == 0) {
