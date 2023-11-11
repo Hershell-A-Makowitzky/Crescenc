@@ -2,6 +2,8 @@ const std     = @import("std");
 const pbuffer = @import("process_buffer.zig");
 const ch = @import("check.zig");
 const ph = @import("print_hash.zig");
+const h = @import("help.zig");
+const v = @import("version.zig");
 
 pub const FlagsProcessor = struct {
     pub const Flags = enum { none, std, binary, check, tag, text, zero, ignoreMissing, quiet, status, strict, warn, help, version };
@@ -65,7 +67,11 @@ pub const FlagsProcessor = struct {
                 continue;
             }
             if (std.mem.eql(u8, "--q", val) or std.mem.eql(u8, "--qu", val) or std.mem.eql(u8, "--qui", val) or std.mem.eql(u8, "--quie", val) or std.mem.eql(u8, "--quiet", val)) {
-                self.f[7] = FlagsProcessor.Flags.quiet;
+                if (self.f[10] == FlagsProcessor.Flags.warn) {
+                    self.f[7] = FlagsProcessor.Flags.none;
+                } else {
+                    self.f[7] = FlagsProcessor.Flags.quiet;
+                }
                 continue;
             }
             if (std.mem.eql(u8, "--s", val) or std.mem.eql(u8, "--st", val) or std.mem.eql(u8, "--sta", val) or std.mem.eql(u8, "--stat", val) or std.mem.eql(u8, "--statu", val) or std.mem.eql(u8, "--status", val)) {
@@ -78,16 +84,16 @@ pub const FlagsProcessor = struct {
             }
             if (std.mem.eql(u8, "-w", val) or std.mem.eql(u8, "--w", val) or std.mem.eql(u8, "--wa", val) or std.mem.eql(u8, "--war", val) or std.mem.eql(u8, "--warn", val)) {
                 self.f[10] = FlagsProcessor.Flags.warn;
+                self.f[7] = FlagsProcessor.Flags.none;
+
                 continue;
             }
             if (std.mem.eql(u8, "--h", val) or std.mem.eql(u8, "--he", val) or std.mem.eql(u8, "--hel", val) or std.mem.eql(u8, "--help", val)) {
-                // TODO: print help
-                std.debug.print("HELP", .{});
+                std.debug.print("{s}\n", .{h.help});
                 std.process.exit(0);
             }
             if (std.mem.eql(u8, "--v", val) or std.mem.eql(u8, "--ve", val) or std.mem.eql(u8, "--ver", val) or std.mem.eql(u8, "--vers", val) or std.mem.eql(u8, "--versi", val) or std.mem.eql(u8, "--versio", val) or std.mem.eql(u8, "--version", val)) {
-                // TODO: print version
-                std.debug.print("VERSION", .{});
+                std.debug.print("{s}\n", .{v.version});
                 std.process.exit(0);
             }
             if (std.mem.startsWith(u8, val, "--") and val.len > 2) {
@@ -117,18 +123,20 @@ pub const FlagsProcessor = struct {
                 std.os.exit(1);
             }
         }
+        // std.debug.print("{any}\n", .{self.f});
         self.checkForOptionsError(program);
         try self.executeCheck(program, options[0..]);
-        for (options[1..]) |val| {
-            if (!std.mem.startsWith(u8, val, "-")) {
-                const input = std.fs.cwd().openFile(val, .{}) catch {
-                    std.debug.print("{s}: {s}: No such file or directory\n", .{ program, val });
-                    continue;
-                };
-                defer input.close();
-                _ = try pbuffer.processBuffer(input, val, self);
-            }
-        }
+        // for (options[1..]) |val| {
+        //     std.debug.print("&{s}&\n", .{val});
+        //     if (!std.mem.startsWith(u8, val, "-")) {
+        //         const input = std.fs.cwd().openFile(val, .{}) catch {
+        //             std.debug.print("{s}: {s}: No such file or directory\n", .{ program, val });
+        //             continue;
+        //         };
+        //         defer input.close();
+        //         _ = try pbuffer.processBuffer(input, val, self);
+        //     }
+        // }
     }
     pub fn checkAfterDoubleDash(self: *FlagsProcessor, name: [:0]u8, input: [][:0]u8) !void {
         for (input) |value| {
@@ -209,6 +217,7 @@ pub const FlagsProcessor = struct {
                 try ph.printHash(result, value, self);
                 continue;
             }
+            // std.debug.print("Not stdin default check\n", .{});
             const file = std.fs.cwd().openFile(value, .{}) catch {
                 std.debug.print("defaultCheck {s}: {s}: No such file or directory\n", .{ name, value });
                 continue;
@@ -280,6 +289,7 @@ pub const FlagsProcessor = struct {
             // try pbuffer.processBuffer(input, option, self);
             // std.debug.print("Reading stdin...", .{});
         } else {
+            // std.debug.print("In default check\n", .{});
             try self.defaultCheck(program, options);
         }
     }

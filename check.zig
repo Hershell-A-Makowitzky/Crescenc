@@ -16,12 +16,13 @@ pub fn check(programm: [:0]u8, filename: [:0]u8, flags: *fp.FlagsProcessor) !voi
     var improperlyFormattedFiles: usize = 0;
     var fileWarnings: usize = 0;
     var shaWarnings: usize = 0;
+    var verifiedFiles: usize = 0;
     // var seek: u64 = 0;
     const input = std.fs.cwd().openFile(filename, .{}) catch |err| {
         if (exit == 0) {
             exit = 1;
         }
-        std.debug.print("ExecuteCheck {s}: {s}: No such file or directory\n", .{ program, filename });
+        std.debug.print("{s}: {s}: No such file or directory\n", .{ program, filename });
         return err;
     };
     defer {
@@ -33,7 +34,7 @@ pub fn check(programm: [:0]u8, filename: [:0]u8, flags: *fp.FlagsProcessor) !voi
                 std.debug.print("{s}: WARNING: {d} lines are improperly formatted\n", .{ program, improperlyFormattedFiles });
             }
         }
-        if (fileWarnings > 0 and flags.f[8] != fp.FlagsProcessor.Flags.status) {
+        if (fileWarnings > 0 and flags.f[8] != fp.FlagsProcessor.Flags.status and flags.f[6] != fp.FlagsProcessor.Flags.ignoreMissing) {
             if (fileWarnings == 1) {
                 std.debug.print("{s}: WARNING: {d} listed file could not be read\n", .{ program, fileWarnings });
             } else {
@@ -46,6 +47,13 @@ pub fn check(programm: [:0]u8, filename: [:0]u8, flags: *fp.FlagsProcessor) !voi
         if (formattedFiles == 0 and flags.f[8] != fp.FlagsProcessor.Flags.status) {
             std.debug.print("{s}: {s}: no properly formatted checksum lines found\n", .{ program, filename });
         }
+        if (verifiedFiles == 0 and flags.f[6] == fp.FlagsProcessor.Flags.ignoreMissing) {
+            std.debug.print("{s}: {s}: no file was verified\n", .{ program, filename });
+        }
+        if (flags.f[9] == fp.FlagsProcessor.Flags.strict) {
+            exit = 0;
+        }
+        // std.debug.print("EXIT: {d}\n", .{exit});
     }
     defer input.close();
     while (true) {
@@ -110,8 +118,10 @@ pub fn check(programm: [:0]u8, filename: [:0]u8, flags: *fp.FlagsProcessor) !voi
                 if (exit == 0) {
                     exit = 1;
                 }
-                std.debug.print("{s}: '{s}': No such file or directory\n",  .{program, fileToSha});
-                if (flags.f[8] != fp.FlagsProcessor.Flags.status) {
+                if (flags.f[6] != fp.FlagsProcessor.Flags.ignoreMissing) {
+                    std.debug.print("{s}: {s}: No such file or directory\n",  .{program, fileToSha});
+                }
+                if (flags.f[8] != fp.FlagsProcessor.Flags.status and flags.f[6] != fp.FlagsProcessor.Flags.ignoreMissing) {
                     std.debug.print("{s}: FAILED open or read\n", .{ fileToSha });
                 }
                 fileWarnings += 1;
@@ -129,8 +139,11 @@ pub fn check(programm: [:0]u8, filename: [:0]u8, flags: *fp.FlagsProcessor) !voi
             const h2 = std.fmt.fmtSliceHexLower(ptr[0..20]);
 
             if (std.mem.eql(u8, h1, h2.data) and flags.f[8] != fp.FlagsProcessor.Flags.status) {
-                std.debug.print("{s}: OK\n", .{ fileToSha });
+                if (flags.f[7] != fp.FlagsProcessor.Flags.quiet) {
+                    std.debug.print("{s}: OK\n", .{ fileToSha });
+                }
                 attemptsMade += 1;
+                verifiedFiles += 1;
             } else if (flags.f[8] != fp.FlagsProcessor.Flags.status) {
                 attemptsMade += 1;
                 shaWarnings += 1;

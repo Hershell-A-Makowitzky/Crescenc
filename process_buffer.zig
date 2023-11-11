@@ -40,7 +40,7 @@ pub fn processBuffer(file: std.fs.File, name: []const u8, flags: *fp.FlagsProces
         } else {
             if (size == ssize) {
                 // std.debug.print("turn\n", .{});
-                // strlen += size - index;
+                strlen += size - index;
                 index = 0;
                 size = try file.read(&buffer);
             } else {
