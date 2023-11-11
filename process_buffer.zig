@@ -22,12 +22,8 @@ pub fn processBuffer(file: std.fs.File, name: []const u8, flags: *fp.FlagsProces
     };
     _ = name;
     _ = flags;
-    // std.debug.print("{}\n", .{size});
     while (true) {
         if (index + 64 <= size) {
-            // std.debug.print("In loop {} {}\n", .{index, index + 64});
-            // var rest = padding(buffer[index..(index + 64)]);
-            // TODO: optimize without calling padding (cast [64]u8 to [5]u32)
             var input: [16]u32 = undefined;
             var pointer: *[64]u8 = @ptrCast(&input);
             inline for (0..64, 0..) |_, i| {
@@ -36,38 +32,28 @@ pub fn processBuffer(file: std.fs.File, name: []const u8, flags: *fp.FlagsProces
             ch.calculateHash(&input, &bufferB);
             index += 64;
             strlen += 64;
-            // std.debug.print("Strlen in loop {}\n", .{strlen});
         } else {
             if (size == ssize) {
-                // std.debug.print("turn\n", .{});
                 strlen += size - index;
                 index = 0;
                 size = try file.read(&buffer);
             } else {
                 index = size - index;
-                // std.debug.print("Index in break {}\n", .{index});
                 strlen += index;
-                // std.debug.print("Strlen {}\n", .{strlen});
-                // std.debug.print("Index in main {}\n", .{index});
                 switch (index) {
                     0 => {
                         var rest = pes.paddingEndSpecial(strlen);
                         ch.calculateHash(&rest, &bufferB);
-                        // try ph.printHash(bufferB, name, flags);
                     },
                     1...55 => {
-                        // strlen += index;
                         var rest = ps.paddingShort(buffer[(size - index)..size], strlen, index);
                         ch.calculateHash(&rest, &bufferB);
-                        // try ph.printHash(bufferB, name, flags);
                     },
                     56...63 => {
-                        // strlen += index;
                         var rest = psl.paddingSpecial(buffer[(size - index)..size], index);
                         _ = ch.calculateHash(&rest, &bufferB);
                         rest = pe.paddingEnd(strlen);
                         ch.calculateHash(&rest, &bufferB);
-                        // try ph.printHash(bufferB, name, flags);
                     },
                     else => {},
                 }

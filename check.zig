@@ -17,7 +17,6 @@ pub fn check(programm: [:0]u8, filename: [:0]u8, flags: *fp.FlagsProcessor) !voi
     var fileWarnings: usize = 0;
     var shaWarnings: usize = 0;
     var verifiedFiles: usize = 0;
-    // var seek: u64 = 0;
     const input = std.fs.cwd().openFile(filename, .{}) catch |err| {
         if (exit == 0) {
             exit = 1;
@@ -26,7 +25,6 @@ pub fn check(programm: [:0]u8, filename: [:0]u8, flags: *fp.FlagsProcessor) !voi
         return err;
     };
     defer {
-        // std.debug.print("ShaWarnings {d} - FileWarnings {d} - Formated {d}\n", .{shaWarnings, fileWarnings, formattedFiles});
         if (improperlyFormattedFiles > 0 and flags.f[8] != fp.FlagsProcessor.Flags.status and attemptsMade > 0) {
             if (improperlyFormattedFiles == 1) {
                 std.debug.print("{s}: WARNING: {d} line are improperly formatted\n", .{ program, improperlyFormattedFiles });
@@ -53,34 +51,17 @@ pub fn check(programm: [:0]u8, filename: [:0]u8, flags: *fp.FlagsProcessor) !voi
         if (flags.f[9] == fp.FlagsProcessor.Flags.strict) {
             exit = 0;
         }
-        // std.debug.print("EXIT: {d}\n", .{exit});
     }
     defer input.close();
     while (true) {
         line += 1;
         var len = try input.readAll(&shabuffer);
-        // std.debug.print("AM I HOME?\n", .{});
         if (len == 0) {
             break;
         }
-        // _ = try input.readAll(&shabuffer);
-        // const token = std.mem.tokenizeScalar(u8, &shabuffer, '\n');
-        // std.debug.print("TOKEN @{s}@\n", .{token.buffer});
-        // std.debug.print("SHABUFFER @{s}@\n", .{shabuffer});
-        // const pos = try input.getPos();
-        // std.debug.print("POS {} END {}\n", .{ pos, try input.getEndPos() });
-        // if (pos == try input.getEndPos()) {
-        //     break;
-        // }
-        // seek += len;
-        // _ = try input.seekTo(seek);
         var bufferRead = std.mem.tokenizeScalar(u8, &shabuffer, ' ');
         if (bufferRead.peek()) |value| {
-            // TODO: fix bug caused if there is no new line in the token
-            // TODO: tokenize whole file
-            // std.debug.print("~{s}~\n", .{value});
             if (value.len != 40 or !(std.mem.eql(u8, " *", shabuffer[40..]) or std.mem.eql(u8, "  ", shabuffer[40..]))) {
-                // std.debug.print("SKIPPING\n", .{});
                 improperlyFormattedFiles += 1;
                 _ = try input.reader().skipUntilDelimiterOrEof('\n');
                 if (exit == 0) {
@@ -94,26 +75,13 @@ pub fn check(programm: [:0]u8, filename: [:0]u8, flags: *fp.FlagsProcessor) !voi
         }
         formattedFiles += 1;
         const sha = shabuffer[0..40];
-        // std.debug.print("SHA is *{s}*\n", .{sha});
-        // std.debug.print("DEBUG: Filebuffer BEFORE is *{s}*\n", .{filebuffer});
-        // std.debug.print("DEBUG: Position of cursor is *{d}*\n", .{try input.getPos()});
         len = try input.readAll(&filebuffer);
-        // std.debug.print("LEN ***{d}***\n", .{len});
-        // std.debug.print("POS1 ***{d}***\n", .{try input.getPos()});
         if (len == 0) {
             break;
         }
-        // std.debug.print("DEBUG: Filebuffer AFTER is *{s}*\n", .{filebuffer});
-        // std.debug.print("POS {} END {}\n", .{ pos, try input.getEndPos() });
         var fileRead = std.mem.tokenizeScalar(u8, &filebuffer, '\n');
-        // std.debug.print("File buffer{s}\n", .{ filebuffer });
         if (fileRead.peek()) |fileToSha| {
-            // std.debug.print("FileToSha '{s}'\n", .{fileToSha});
-            // seek += fileToSha.len;
-            // std.debug.print("POS1 ***{d}***\n", .{try input.getPos()});
             try input.seekBy(-(@as(i64, @intCast(len)) - @as(i64, @intCast(fileToSha.len))-1));
-            // std.debug.print("POS2 ***{d}***\n", .{try input.getPos()});
-            // _ = try input.seekTo(seek);
             const openFileToSha = std.fs.cwd().openFile(fileToSha, .{}) catch {
                 if (exit == 0) {
                     exit = 1;
@@ -127,7 +95,6 @@ pub fn check(programm: [:0]u8, filename: [:0]u8, flags: *fp.FlagsProcessor) !voi
                 fileWarnings += 1;
                 continue;
             };
-            // std.debug.print("Are we here?\n", .{});
             defer openFileToSha.close();
             var result = try pbuffer.processBuffer(openFileToSha, fileToSha, flags);
             for (&result) |*val| {

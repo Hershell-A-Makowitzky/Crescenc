@@ -97,7 +97,6 @@ pub const FlagsProcessor = struct {
                 std.process.exit(0);
             }
             if (std.mem.startsWith(u8, val, "--") and val.len > 2) {
-                // std.debug.print("{s}\n", .{val});
                 std.debug.print("{s}: invalid option -- '{s}'\nTry '{s} --help' for more information.\n", .{ program, val[1..], program });
                 std.os.exit(1);
             }
@@ -123,20 +122,8 @@ pub const FlagsProcessor = struct {
                 std.os.exit(1);
             }
         }
-        // std.debug.print("{any}\n", .{self.f});
         self.checkForOptionsError(program);
         try self.executeCheck(program, options[0..]);
-        // for (options[1..]) |val| {
-        //     std.debug.print("&{s}&\n", .{val});
-        //     if (!std.mem.startsWith(u8, val, "-")) {
-        //         const input = std.fs.cwd().openFile(val, .{}) catch {
-        //             std.debug.print("{s}: {s}: No such file or directory\n", .{ program, val });
-        //             continue;
-        //         };
-        //         defer input.close();
-        //         _ = try pbuffer.processBuffer(input, val, self);
-        //     }
-        // }
     }
     pub fn checkAfterDoubleDash(self: *FlagsProcessor, name: [:0]u8, input: [][:0]u8) !void {
         for (input) |value| {
@@ -207,102 +194,39 @@ pub const FlagsProcessor = struct {
 
     pub fn defaultCheck(self: *FlagsProcessor, name: [:0]u8, options: [][:0]u8) !void {
         for (options[1..]) |value| {
-            // std.debug.print("{s}\n", .{value});
             if (std.mem.eql(u8, value, "--")) {
                 continue;
             }
             if (std.mem.eql(u8, value, "-")) {
-                // std.debug.print("in --\n", .{});
                 const result = try pbuffer.processBuffer(std.io.getStdIn(), "-", self);
                 try ph.printHash(result, value, self);
                 continue;
             }
-            // std.debug.print("Not stdin default check\n", .{});
             const file = std.fs.cwd().openFile(value, .{}) catch {
                 std.debug.print("defaultCheck {s}: {s}: No such file or directory\n", .{ name, value });
                 continue;
             };
             defer file.close();
-            // std.debug.print("Precess buffer\n", .{});
             const result = try pbuffer.processBuffer(file, value, self);
             try ph.printHash(result, value, self);
         }
     }
-
-    // pub fn executeCheck(self: *FlagsProcessor, options: [][:0]u8) !void {
-    //     for (options[1..]) |value| {
-    //         if (std.mem.eql(u8, value, "--")) {
-    //             continue;
-    //         }
-    //         if (std.mem.eql(u8, value, "-")) {
-    //             std.debug.print("in --\n", .{});
-    //             _ = try pbuffer.processBuffer(std.io.getStdIn(), "-", self);
-    //             continue;
-    //         }
-    //         const file = std.fs.cwd().openFile(value, .{}) catch {
-    //             std.debug.print("checkAfterDoubleDash {s}: {s}: No such file or directory\n", .{ program, value });
-    //             continue;
-    //         };
-    //         defer file.close();
-    //         _ = try pbuffer.processBuffer(file, value, self);
-    //     }
-
-    // }
     pub fn executeCheck(self: *FlagsProcessor, program: [:0]u8, options: [][:0]u8) !void {
-        // for (options) |option| {
-        //     std.debug.print("{s}\n", .{option});
-        // }
-
-        // for (self.f) |flag| {
-        //     std.debug.print("{any}\n", .{flag});
-        // }
-        // std.debug.print("{any}\n", .{self.f[2] == FlagsProcessor.Flags.check and self.f[1] == FlagsProcessor.Flags.std});
-        // if (self.f[2] == FlagsProcessor.Flags.check) {
-        //     std.debug.print("Checking empty\n", .{});
-        //     ch.check(program, @constCast("standard input"[0..]), std.io.getStdIn(), self);
-        // }
-        if (self.f[2] == FlagsProcessor.Flags.check) { //or self.f[9] == FlagsProcessor.Flags.strict or self.f[6] == FlagsProcessor.Flags.ignoreMissing or self.f[7] == FlagsProcessor.Flags.quiet or self.f[8] == FlagsProcessor.Flags.status or self.f[10] == FlagsProcessor.Flags.warn)) {
+        if (self.f[2] == FlagsProcessor.Flags.check) {
             for (options[1..], 0..) |option, index| {
-                // std.debug.print("{d} {s}\n", .{index, option});
                 if (std.mem.eql(u8, option, "--")) {
                     try defaultCheck(self, program, options[index..]);
                     return;
                 }
                 if (std.mem.startsWith(u8, option, "-")) {
-                    // std.debug.print("Whooo...\n", .{});
                     continue;
                 }
-                // const input = std.fs.cwd().openFile(option, .{}) catch {
-                //     std.debug.print("ExecuteCheck {s}: {s}: No such file or directory\n", .{ program, option });
-                //     continue;
-                // };
-                // defer input.close();
-                // std.debug.print("FILE {?}\n", .{input});
                 _ = ch.check(program, option, self) catch {
                     continue;
                 };
             }
-            // const input = std.fs.cwd().openFile(option, .{}) catch {
-            //     std.debug.print("{s}: {s}: No such file or directory\n", .{ program, option });
-            //     continue;
-            // };
-            // try pbuffer.processBuffer(input, option, self);
-            // std.debug.print("Reading stdin...", .{});
         } else {
-            // std.debug.print("In default check\n", .{});
             try self.defaultCheck(program, options);
         }
     }
-    // binary 1
-    // check 2
-    // tag 3
-    // text 4
-    // zero  5
-    // ignoreMissing 6
-    // quiet 7
-    // status 8
-    // strict 9
-    // warn 10
-    // help 11
-    // version 12
 };

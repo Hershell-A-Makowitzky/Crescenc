@@ -10,10 +10,6 @@ pub fn calculateHash(message: *[16]u32, bufferB: *[5]u32) void {
 
     inline for (&seq, 0..) |*val, i| {
         if (i < 16) {
-            // var valuePointer: *[4]u8 = @ptrCast(val);
-            // for (0..4, 0..) |_, j| {
-            //     valuePointer[i] = message[j];
-            // }
             val.* = std.mem.nativeToBig(u32, message[i]);
         } else {
             val.* = cir.circular(1, seq[i - 3] ^ seq[i - 8] ^ seq[i - 14] ^ seq[i - 16]);
@@ -38,6 +34,4 @@ pub fn calculateHash(message: *[16]u32, bufferB: *[5]u32) void {
     bufferB[2] +%= bufferA[2];
     bufferB[3] +%= bufferA[3];
     bufferB[4] +%= bufferA[4];
-
-    //return bufferB;
 }
