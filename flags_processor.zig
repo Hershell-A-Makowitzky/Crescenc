@@ -9,21 +9,15 @@ pub const FlagsProcessor = struct {
     pub const Flags = enum { none, std, binary, check, tag, text, zero, ignoreMissing, quiet, status, strict, warn, help, version };
     f: [11]FlagsProcessor.Flags = [_]FlagsProcessor.Flags{FlagsProcessor.Flags.none} ** 11,
     pub fn processFlags(self: *FlagsProcessor, program: [:0]u8, options: [][:0]u8) !void {
-        if (options.len == 1) {
-            _ = try pbuffer.processBuffer(std.io.getStdIn(), "-", self);
-            return;
-        }
         for (options[1..], 0..) |val, idx| {
             if ((std.mem.eql(u8, "-", options[1]) or std.mem.eql(u8, "--", options[1])) and options.len == 2) {
-                self.f[0] = FlagsProcessor.Flags.std;
-                _ = try pbuffer.processBuffer(std.io.getStdIn(), "-", self);
                 break;
             }
             if (std.mem.eql(u8, "-", val)) {
-                self.f[1] = FlagsProcessor.Flags.std;
                 continue;
             }
             if (std.mem.eql(u8, "--", val)) {
+                self.f[0] = FlagsProcessor.Flags.std;
                 self.checkForOptionsError(program);
                 try self.executeCheck(program, options[idx..]);
                 return;
@@ -193,22 +187,39 @@ pub const FlagsProcessor = struct {
     }
 
     pub fn defaultCheck(self: *FlagsProcessor, name: [:0]u8, options: [][:0]u8) !void {
-        for (options[1..]) |value| {
-            if (std.mem.eql(u8, value, "--")) {
-                continue;
-            }
-            if (std.mem.eql(u8, value, "-")) {
-                const result = try pbuffer.processBuffer(std.io.getStdIn(), "-", self);
+        if (self.f[0] == FlagsProcessor.Flags.none) {
+            const result = try pbuffer.processBuffer(std.io.getStdIn(), "-", self);
+            try ph.printHash(result, "-", self);
+            return;
+        }
+        if (self.f[0] == FlagsProcessor.Flags.std) {
+            for (options[1..]) |value| {
+                if (std.mem.eql(u8, value, "--")) {
+                    continue;
+                }
+                const file = std.fs.cwd().openFile(value, .{}) catch {
+                    std.debug.print("{s}: {s}: No such file or directory\n", .{ name, value });
+                    continue;
+                };
+                defer file.close();
+                const result = try pbuffer.processBuffer(file, value, self);
                 try ph.printHash(result, value, self);
-                continue;
             }
-            const file = std.fs.cwd().openFile(value, .{}) catch {
-                std.debug.print("defaultCheck {s}: {s}: No such file or directory\n", .{ name, value });
-                continue;
-            };
-            defer file.close();
-            const result = try pbuffer.processBuffer(file, value, self);
-            try ph.printHash(result, value, self);
+        } else {
+            for (options[1..]) |value| {
+                if (std.mem.eql(u8, value, "-")) {
+                    const result = try pbuffer.processBuffer(std.io.getStdIn(), "-", self);
+                    try ph.printHash(result, value, self);
+                    continue;
+                }
+                const file = std.fs.cwd().openFile(value, .{}) catch {
+                    std.debug.print("{s}: {s}: No such file or directory\n", .{ name, value });
+                    continue;
+                };
+                defer file.close();
+                const result = try pbuffer.processBuffer(file, value, self);
+                try ph.printHash(result, value, self);
+            }
         }
     }
     pub fn executeCheck(self: *FlagsProcessor, program: [:0]u8, options: [][:0]u8) !void {
